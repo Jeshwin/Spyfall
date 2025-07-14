@@ -1,18 +1,18 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'firebase_options.dart';
-import 'constants.dart';
-import 'pages/join_room_page.dart';
 
+import 'constants.dart';
+import 'firebase_options.dart';
+import 'pages/lobby_page.dart';
+import 'services/room_service.dart';
+import 'services/user_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
-
 }
 
 class MyApp extends StatelessWidget {
@@ -26,12 +26,12 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: AppConstants.colorScheme,
         useMaterial3: true,
+        textTheme: GoogleFonts.interTextTheme(),
       ),
       home: const MyHomePage(title: 'Spyfall'),
     );
   }
 }
-
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -52,19 +52,46 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  void _createRoom() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const JoinRoomPage(),
-      ),
-    );
+  bool _isCreatingRoom = false;
+
+  void _createRoom() async {
+    setState(() {
+      _isCreatingRoom = true;
+    });
+
+    try {
+      final userId = UserService.getCurrentUserId();
+      final room = await RoomService.createRoom(
+        createdBy: userId,
+      );
+
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => LobbyPage(roomCode: room.roomCode),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to create room: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreatingRoom = false;
+        });
+      }
+    }
   }
 
   void _joinExistingGame() {
-    showDialog(
-      context: context,
-      builder: (context) => _JoinGameDialog(),
-    );
+    showDialog(context: context, builder: (context) => _JoinGameDialog());
   }
 
   @override
@@ -83,7 +110,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 size: 120,
                 color: Theme.of(context).colorScheme.primary,
               ),
-              const SizedBox(height: 32),
               // App Title
               Text(
                 'Spyfall',
@@ -97,35 +123,64 @@ class _MyHomePageState extends State<MyHomePage> {
               Text(
                 'developed by Jeshwin Prince',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
+              ),
+              SizedBox(height: 16),
+              // Navigation Buttons
+              Row(
+                spacing: 16,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _isCreatingRoom ? null : _createRoom,
+                    icon: _isCreatingRoom
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(LucideIcons.plus),
+                    label: Text(
+                      _isCreatingRoom ? 'Creating...' : 'Create Room',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 24,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(16)),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _joinExistingGame,
+                    icon: const Icon(LucideIcons.logIn),
+                    label: const Text('Join Game'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 24,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(16)),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const Spacer(),
-              // Navigation Buttons
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _createRoom,
-                  icon: const Icon(LucideIcons.plus),
-                  label: const Text('Create Room'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _joinExistingGame,
-                  icon: const Icon(LucideIcons.logIn),
-                  label: const Text('Join Existing Game'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 48),
             ],
           ),
         ),
@@ -153,10 +208,12 @@ class _JoinGameDialogState extends State<_JoinGameDialog> {
 
   void _joinGame() {
     if (_formKey.currentState!.validate()) {
-      // TODO: Implement join game logic
+      final roomCode = _gameCodeController.text.trim().toUpperCase();
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Joining game...')),
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => LobbyPage(roomCode: roomCode),
+        ),
       );
     }
   }
@@ -207,10 +264,7 @@ class _JoinGameDialogState extends State<_JoinGameDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
-          onPressed: _joinGame,
-          child: const Text('Join Game'),
-        ),
+        FilledButton(onPressed: _joinGame, child: const Text('Join Game')),
       ],
     );
   }
