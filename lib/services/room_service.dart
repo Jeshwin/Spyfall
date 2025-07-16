@@ -1,6 +1,9 @@
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:yaml/yaml.dart';
 
 import '../models/room.dart';
 
@@ -129,5 +132,35 @@ class RoomService {
           }
           return Room.fromJson(snapshot.data()!, roomCode);
         });
+  }
+
+  /// Select a random location for this game
+  static Future<String> selectRandomLocation(String roomCode) async {
+    try {
+      final String locationsYaml = await rootBundle.loadString(
+        'assets/locations.yml',
+      );
+      final yamlData = loadYaml(locationsYaml);
+      final List<dynamic> locations = yamlData['locations'];
+
+      // Generate random index
+      final random = Random();
+      final randomIndex = random.nextInt(locations.length);
+
+      // Get the random location
+      final selectedLocation = locations[randomIndex]['name'];
+
+      // Set room's location to selected location
+      await _firestore.collection(_roomsCollection).doc(roomCode).update({
+        'location': selectedLocation,
+      });
+
+      return selectedLocation;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading locations: $e');
+      }
+      rethrow;
+    }
   }
 }

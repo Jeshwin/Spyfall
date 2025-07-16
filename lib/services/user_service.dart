@@ -4,11 +4,12 @@ class UserService {
   static String? _currentUserId;
 
   static String _generateUserId() {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random();
     return String.fromCharCodes(
       Iterable.generate(
-        12,
+        16,
         (_) => chars.codeUnitAt(random.nextInt(chars.length)),
       ),
     );

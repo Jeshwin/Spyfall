@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -11,22 +13,17 @@ class GamePage extends StatefulWidget {
   final String roomCode;
   final String playerName;
 
-  const GamePage({
-    super.key,
-    required this.roomCode,
-    required this.playerName,
-  });
+  const GamePage({super.key, required this.roomCode, required this.playerName});
 
   @override
   State<GamePage> createState() => _GamePageState();
 }
 
 class _GamePageState extends State<GamePage> {
-  bool _isRoleRevealed = false;
   String? _currentPlayerId;
   Timer? _gameTimer;
   int _remainingTime = 0;
-  
+
   @override
   void initState() {
     super.initState();
@@ -58,7 +55,7 @@ class _GamePageState extends State<GamePage> {
       setState(() {
         _remainingTime = room.settings.discussionTime;
       });
-      
+
       _gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (_remainingTime > 0) {
           setState(() {
@@ -89,10 +86,64 @@ class _GamePageState extends State<GamePage> {
     );
   }
 
-  void _revealRole() {
-    setState(() {
-      _isRoleRevealed = true;
-    });
+  void _showRoleDialog() async {
+    if (_currentPlayerId == null) return;
+
+    final player = await PlayerService.getPlayerById(_currentPlayerId!);
+    if (player == null) return;
+
+    final isSpy = player.isSpy;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSpy ? LucideIcons.userX : LucideIcons.userCheck,
+              size: 64,
+              color: isSpy
+                  ? Theme.of(context).colorScheme.error
+                  : Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isSpy ? 'Role: Spy' : 'Role: $_currentPlayerId',
+              style: TextStyle(
+                color: isSpy
+                    ? Theme.of(context).colorScheme.error
+                    : Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (isSpy)
+              Text(
+                'Your mission: Blend in and don\'t get caught!',
+                style: Theme.of(context).textTheme.bodyLarge,
+                textAlign: TextAlign.center,
+              ),
+            if (!isSpy) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Location: School', // TODO: Get actual location
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatTime(int seconds) {
@@ -128,7 +179,20 @@ class _GamePageState extends State<GamePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Room: ${widget.roomCode}'),
+        title: GestureDetector(
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: widget.roomCode));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Room code ${widget.roomCode} copied to clipboard!',
+                ),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          },
+          child: Text('Room: ${widget.roomCode}'),
+        ),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         actions: [
@@ -159,10 +223,13 @@ class _GamePageState extends State<GamePage> {
                       Text(
                         _formatTime(_remainingTime),
                         style: GoogleFonts.spaceMono(
-                          textStyle: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onErrorContainer,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          textStyle: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onErrorContainer,
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
                       ),
                     ],
@@ -192,101 +259,51 @@ class _GamePageState extends State<GamePage> {
               ),
               const SizedBox(height: 16),
 
-              // Role Card
-              if (_currentPlayerId != null)
-                StreamBuilder<Player?>(
-                  stream: PlayerService.getPlayerById(_currentPlayerId!).asStream(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return const Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Center(child: CircularProgressIndicator()),
-                        ),
-                      );
-                    }
-
-                    final player = snapshot.data!;
-                    final isSpy = player.isSpy;
-
-                    return Card(
-                      color: _isRoleRevealed 
-                          ? (isSpy 
-                              ? Theme.of(context).colorScheme.errorContainer
-                              : Theme.of(context).colorScheme.primaryContainer)
-                          : Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          children: [
-                            Icon(
-                              _isRoleRevealed 
-                                  ? (isSpy ? LucideIcons.userX : LucideIcons.userCheck)
-                                  : LucideIcons.eyeOff,
-                              size: 48,
-                              color: _isRoleRevealed
-                                  ? (isSpy 
-                                      ? Theme.of(context).colorScheme.onErrorContainer
-                                      : Theme.of(context).colorScheme.onPrimaryContainer)
-                                  : Theme.of(context).colorScheme.onSurface,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _isRoleRevealed 
-                                  ? (isSpy ? 'You are the SPY!' : 'You are NOT the spy')
-                                  : 'Tap to reveal your role',
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: _isRoleRevealed
-                                    ? (isSpy 
-                                        ? Theme.of(context).colorScheme.onErrorContainer
-                                        : Theme.of(context).colorScheme.onPrimaryContainer)
-                                    : Theme.of(context).colorScheme.onSurface,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            if (_isRoleRevealed && !isSpy) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                'Your mission: Find the spy!',
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Location: School', // TODO: Get actual location
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                            if (_isRoleRevealed && isSpy) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                'Your mission: Blend in and don\'t get caught!',
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: Theme.of(context).colorScheme.onErrorContainer,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                            if (!_isRoleRevealed) ...[
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: _revealRole,
-                                child: const Text('Reveal Role'),
-                              ),
-                            ],
-                          ],
-                        ),
+              // Role Button
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    children: [
+                      Icon(
+                        LucideIcons.eye,
+                        size: 48,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
-                    );
-                  },
+                      const SizedBox(height: 16),
+                      Text(
+                        'View Your Role',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontWeight: FontWeight.bold,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _showRoleDialog,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 24,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('View Role & Location'),
+                      ),
+                    ],
+                  ),
                 ),
+              ),
               const SizedBox(height: 16),
 
               // Players List
@@ -329,21 +346,30 @@ class _GamePageState extends State<GamePage> {
                                 itemCount: players.length,
                                 itemBuilder: (context, index) {
                                   final player = players[index];
-                                  final isCurrentPlayer = player.name == widget.playerName;
-                                  
+                                  final isCurrentPlayer =
+                                      player.name == widget.playerName;
+
                                   return ListTile(
                                     leading: Icon(
-                                      player.isHost ? LucideIcons.crown : LucideIcons.user,
+                                      player.isHost
+                                          ? LucideIcons.crown
+                                          : LucideIcons.user,
                                       color: player.isHost
-                                          ? Theme.of(context).colorScheme.primary
-                                          : Theme.of(context).colorScheme.onSurface,
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.primary
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
                                     ),
                                     title: Text(
                                       player.name,
                                       style: isCurrentPlayer
                                           ? TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              color: Theme.of(context).colorScheme.primary,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
                                             )
                                           : null,
                                     ),
@@ -353,10 +379,11 @@ class _GamePageState extends State<GamePage> {
                                         if (isCurrentPlayer)
                                           Icon(
                                             LucideIcons.star,
-                                            color: Theme.of(context).colorScheme.primary,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
                                           ),
-                                        if (player.isHost)
-                                          const Text('HOST'),
+                                        if (player.isHost) const Text('HOST'),
                                       ],
                                     ),
                                   );

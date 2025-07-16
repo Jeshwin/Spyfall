@@ -1,6 +1,9 @@
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:yaml/yaml.dart';
 
 import '../models/player.dart';
 
@@ -11,14 +14,13 @@ class PlayerService {
   /// Creates a new player and joins them to the specified game
   static Future<Player> createPlayer({
     required String gameId,
+    required String userId,
     required String name,
     required bool isHost,
   }) async {
     try {
-      final playerId = _generatePlayerId();
-
       final player = Player(
-        id: playerId,
+        id: userId,
         gameId: gameId,
         name: name,
         isSpy: false,
@@ -30,7 +32,7 @@ class PlayerService {
 
       await _firestore
           .collection(_playersCollection)
-          .doc(playerId)
+          .doc(userId)
           .set(player.toJson());
 
       return player;
@@ -150,6 +152,60 @@ class PlayerService {
     }
   }
 
+  // Assign all players a random role for the selected location
+  static Future<void> assignRandomRoles(
+    String gameId,
+    String selectedLocation,
+  ) async {
+    try {
+      final String locationsYaml = await rootBundle.loadString(
+        'assets/locations.yml',
+      );
+      final yamlData = loadYaml(locationsYaml);
+      final List<dynamic> locations = yamlData['locations'];
+
+      // Get selected location
+      final foundSelectedLocation = locations.firstWhere(
+        (loc) => loc['name'] == selectedLocation,
+        orElse: () => null,
+      );
+      final roles = foundSelectedLocation['roles'];
+
+      if (foundSelectedLocation == null) {
+        throw Exception('Location "$foundSelectedLocation" not found');
+      }
+
+      final querySnapshot = await _firestore
+          .collection(_playersCollection)
+          .where('gameId', isEqualTo: gameId)
+          .orderBy('joinedAt')
+          .get();
+      final players = querySnapshot.docs;
+      if (players.isEmpty) {
+        throw Exception('No players found for game $gameId');
+      }
+
+      final random = Random();
+      final batch = _firestore.batch();
+
+      // Assign random role to each player
+      for (final player in players) {
+        final randomRole = roles[random.nextInt(roles.length)];
+        batch.update(player.reference, {
+          'role': randomRole,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading locations: $e');
+      }
+      rethrow;
+    }
+  }
+
   /// Assigns spy role to a random player in the game
   static Future<String> assignRandomSpy(String gameId) async {
     try {
@@ -164,8 +220,22 @@ class PlayerService {
       final spyIndex = random.nextInt(players.length);
       final spyPlayer = players[spyIndex];
 
-      // Update the spy player
-      await updatePlayer(spyPlayer.copyWith(isSpy: true));
+      // Update all players
+      final updateFutures = <Future<void>>[];
+
+      for (int i = 0; i < players.length; i++) {
+        final player = players[i];
+
+        if (i == spyIndex) {
+          updateFutures.add(
+            updatePlayer(player.copyWith(isSpy: true, role: null)),
+          );
+        } else {
+          updateFutures.add(updatePlayer(player.copyWith(isSpy: false)));
+        }
+      }
+
+      await Future.wait(updateFutures);
 
       return spyPlayer.id;
     } catch (e) {
@@ -186,18 +256,5 @@ class PlayerService {
     } catch (e) {
       throw Exception('Failed to check if all players are ready: $e');
     }
-  }
-
-  /// Generates a unique player ID
-  static String _generatePlayerId() {
-    const chars =
-        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final random = Random();
-    return String.fromCharCodes(
-      Iterable.generate(
-        16,
-        (_) => chars.codeUnitAt(random.nextInt(chars.length)),
-      ),
-    );
   }
 }

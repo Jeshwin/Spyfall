@@ -1,18 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../models/player.dart';
 import '../models/room.dart';
+import '../pages/game_page.dart';
 import '../services/player_service.dart';
 import '../services/room_service.dart';
-import '../pages/game_page.dart';
 
 class LobbyPage extends StatefulWidget {
   final String roomCode;
   final bool isHost;
+  final String userId;
+  final String name;
 
-  const LobbyPage({super.key, required this.roomCode, this.isHost = false});
+  const LobbyPage({
+    super.key,
+    required this.roomCode,
+    this.isHost = false,
+    required this.userId,
+    this.name = "Player", // Default name
+  });
 
   @override
   State<LobbyPage> createState() => _LobbyPageState();
@@ -26,7 +35,6 @@ class _LobbyPageState extends State<LobbyPage> {
   int _votingTimeLength = 120; // 1 minute default
   bool _startTimerImmediately = true;
 
-  String? _currentPlayerId;
   bool _isReady = false;
   bool _showHostLeftDialog = false;
 
@@ -47,12 +55,12 @@ class _LobbyPageState extends State<LobbyPage> {
     try {
       final player = await PlayerService.createPlayer(
         gameId: widget.roomCode,
-        name: 'Player', // Default name
+        userId: widget.userId,
+        name: widget.name,
         isHost: widget.isHost,
       );
 
       setState(() {
-        _currentPlayerId = player.id;
         _isReady = player.isReady;
         _playerNameController.text = player.name;
       });
@@ -69,19 +77,19 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   void _leaveLobby() async {
-    if (_currentPlayerId != null) {
-      await PlayerService.removePlayer(_currentPlayerId!);
-      
-      // If the host is leaving, mark the room as closed
-      if (widget.isHost) {
-        try {
-          final room = await RoomService.getRoomByCode(widget.roomCode);
-          if (room != null) {
-            await RoomService.updateRoom(room.copyWith(status: RoomStatus.closed));
-          }
-        } catch (e) {
-          // Handle error silently to avoid blocking exit
+    await PlayerService.removePlayer(widget.userId);
+
+    // If the host is leaving, mark the room as closed
+    if (widget.isHost) {
+      try {
+        final room = await RoomService.getRoomByCode(widget.roomCode);
+        if (room != null) {
+          await RoomService.updateRoom(
+            room.copyWith(status: RoomStatus.closed),
+          );
         }
+      } catch (e) {
+        // Handle error silently to avoid blocking exit
       }
     }
     if (mounted) {
@@ -90,13 +98,11 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   void _toggleReady() async {
-    if (_currentPlayerId != null) {
-      final newReadyState = !_isReady;
-      await PlayerService.updatePlayerReady(_currentPlayerId!, newReadyState);
-      setState(() {
-        _isReady = newReadyState;
-      });
-    }
+    final newReadyState = !_isReady;
+    await PlayerService.updatePlayerReady(widget.userId, newReadyState);
+    setState(() {
+      _isReady = newReadyState;
+    });
   }
 
   void _startGame() async {
@@ -117,10 +123,17 @@ class _LobbyPageState extends State<LobbyPage> {
       // Update room status to in_progress
       final room = await RoomService.getRoomByCode(widget.roomCode);
       if (room != null) {
-        await RoomService.updateRoom(room.copyWith(status: RoomStatus.inProgress));
+        await RoomService.updateRoom(
+          room.copyWith(status: RoomStatus.inProgress),
+        );
       }
 
-      // Assign random spy
+      // Assign random location and roles
+      RoomService.selectRandomLocation(widget.roomCode).then((
+        selectedLocation,
+      ) {
+        PlayerService.assignRandomRoles(widget.roomCode, selectedLocation);
+      });
       await PlayerService.assignRandomSpy(widget.roomCode);
 
       if (mounted) {
@@ -146,18 +159,23 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   void _updatePlayerName(String name) async {
-    if (_currentPlayerId != null && name.isNotEmpty) {
-      await PlayerService.updatePlayerName(_currentPlayerId!, name);
+    if (name.isNotEmpty) {
+      await PlayerService.updatePlayerName(widget.userId, name);
     }
   }
 
   void _watchRoomStatus() {
     if (!widget.isHost) {
       RoomService.watchRoom(widget.roomCode).listen((room) {
-        if (room != null && room.status == RoomStatus.closed && mounted && !_showHostLeftDialog) {
+        if (room != null &&
+            room.status == RoomStatus.closed &&
+            mounted &&
+            !_showHostLeftDialog) {
           _showHostLeftDialog = true;
           _showHostLeftGameDialog();
-        } else if (room != null && room.status == RoomStatus.inProgress && mounted) {
+        } else if (room != null &&
+            room.status == RoomStatus.inProgress &&
+            mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (context) => GamePage(
@@ -178,7 +196,9 @@ class _LobbyPageState extends State<LobbyPage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Host Left'),
-          content: const Text('The host has left the game. The lobby has been closed.'),
+          content: const Text(
+            'The host has left the game. The lobby has been closed.',
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -213,19 +233,30 @@ class _LobbyPageState extends State<LobbyPage> {
                             'Room Code:',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          Text(
-                            widget.roomCode,
-                            style: GoogleFonts.getFont(
-                              'Space Mono',
-                              textStyle: Theme.of(context)
-                                  .textTheme
-                                  .headlineMedium
-                                  ?.copyWith(
-                                    fontSize: 40,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
+                          GestureDetector(
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: widget.roomCode));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Room code ${widget.roomCode} copied to clipboard!'),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                            child: Text(
+                              widget.roomCode,
+                              style: GoogleFonts.getFont(
+                                'Space Mono',
+                                textStyle: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium
+                                    ?.copyWith(
+                                      fontSize: 40,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
+                              ),
                             ),
                           ),
                         ],
@@ -292,10 +323,12 @@ class _LobbyPageState extends State<LobbyPage> {
                       stream: PlayerService.watchPlayersInGame(widget.roomCode),
                       builder: (context, snapshot) {
                         final players = snapshot.data ?? [];
-                        final allReady = players.isNotEmpty && players.every((p) => p.isReady);
-                        
+                        final allReady =
+                            players.isNotEmpty &&
+                            players.every((p) => p.isReady);
+
                         return ElevatedButton(
-                          onPressed: widget.isHost 
+                          onPressed: widget.isHost
                               ? (allReady ? _startGame : null)
                               : _toggleReady,
                           style: ElevatedButton.styleFrom(
@@ -307,14 +340,20 @@ class _LobbyPageState extends State<LobbyPage> {
                             foregroundColor: widget.isHost
                                 ? Theme.of(context).colorScheme.onPrimary
                                 : (_isReady
-                                      ? Theme.of(context).colorScheme.onSecondary
-                                      : Theme.of(context).colorScheme.onPrimary),
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.onSecondary
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimary),
                             padding: const EdgeInsets.symmetric(
                               vertical: 16,
                               horizontal: 24,
                             ),
                             shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(16)),
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(16),
+                              ),
                             ),
                             textStyle: const TextStyle(
                               fontSize: 16,
@@ -393,7 +432,9 @@ class _LobbyPageState extends State<LobbyPage> {
                                 if (player.isReady)
                                   Icon(
                                     LucideIcons.check,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                   ),
                                 if (player.isHost) const Text('HOST'),
                               ],
@@ -408,7 +449,6 @@ class _LobbyPageState extends State<LobbyPage> {
       },
     );
   }
-
 
   List<Widget> _buildHostSettings() {
     return [

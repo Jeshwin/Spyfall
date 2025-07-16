@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-import 'constants.dart';
+import 'constants/constants.dart';
 import 'firebase_options.dart';
 import 'models/room.dart';
 import 'pages/lobby_page.dart';
@@ -53,6 +53,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  final userId = UserService.getCurrentUserId();
   bool _isCreatingRoom = false;
 
   void _createRoom() async {
@@ -61,14 +62,16 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     try {
-      final userId = UserService.getCurrentUserId();
       final room = await RoomService.createRoom(createdBy: userId);
 
       if (mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) =>
-                LobbyPage(roomCode: room.roomCode, isHost: true),
+            builder: (context) => LobbyPage(
+              roomCode: room.roomCode,
+              isHost: true,
+              userId: userId,
+            ),
           ),
         );
       }
@@ -91,7 +94,10 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _joinExistingGame() {
-    showDialog(context: context, builder: (context) => _JoinGameDialog());
+    showDialog(
+      context: context,
+      builder: (context) => _JoinGameDialog(userId: userId),
+    );
   }
 
   @override
@@ -134,47 +140,52 @@ class _MyHomePageState extends State<MyHomePage> {
                 spacing: 16,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  FilledButton.icon(
-                    onPressed: _isCreatingRoom ? null : _createRoom,
-                    icon: _isCreatingRoom
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(LucideIcons.plus),
-                    label: Text(
-                      _isCreatingRoom ? 'Creating...' : 'Create Room',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 24,
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _isCreatingRoom ? null : _createRoom,
+                      icon: _isCreatingRoom
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(LucideIcons.plus),
+                      label: Text(
+                        _isCreatingRoom ? 'Creating...' : 'Create Room',
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(16)),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 24,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(16)),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
-                  FilledButton.tonalIcon(
-                    onPressed: _joinExistingGame,
-                    icon: const Icon(LucideIcons.logIn),
-                    label: const Text('Join Game'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 24,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(16)),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: _joinExistingGame,
+                      icon: const Icon(LucideIcons.logIn),
+                      label: const Text('Join Game'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 24,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(16)),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -190,6 +201,10 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 class _JoinGameDialog extends StatefulWidget {
+  final String userId;
+
+  const _JoinGameDialog({super.key, required this.userId});
+
   @override
   _JoinGameDialogState createState() => _JoinGameDialogState();
 }
@@ -209,18 +224,18 @@ class _JoinGameDialogState extends State<_JoinGameDialog> {
   void _joinGame() async {
     if (_formKey.currentState!.validate()) {
       final roomCode = _gameCodeController.text.trim().toUpperCase();
-      
+
       // First check if the room exists
       final room = await RoomService.getRoomByCode(roomCode);
       if (room == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Room not found!')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Room not found!')));
         }
         return;
       }
-      
+
       // Check if the room is joinable
       String? errorMessage;
       switch (room.status) {
@@ -238,21 +253,26 @@ class _JoinGameDialogState extends State<_JoinGameDialog> {
           // These are joinable
           break;
       }
-      
+
       if (errorMessage != null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorMessage)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(errorMessage)));
         }
         return;
       }
-      
+
       if (mounted) {
         Navigator.of(context).pop();
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => LobbyPage(roomCode: roomCode, isHost: false),
+            builder: (context) => LobbyPage(
+              roomCode: roomCode,
+              isHost: false,
+              userId: widget.userId,
+              name: _playerNameController.text.trim(),
+            ),
           ),
         );
       }
