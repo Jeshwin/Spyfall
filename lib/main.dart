@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import 'constants.dart';
 import 'firebase_options.dart';
+import 'models/room.dart';
 import 'pages/lobby_page.dart';
 import 'services/room_service.dart';
 import 'services/user_service.dart';
@@ -215,6 +216,33 @@ class _JoinGameDialogState extends State<_JoinGameDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Room not found!')),
+          );
+        }
+        return;
+      }
+      
+      // Check if the room is joinable
+      String? errorMessage;
+      switch (room.status) {
+        case RoomStatus.inProgress:
+          errorMessage = 'Game is already in progress!';
+          break;
+        case RoomStatus.completed:
+          errorMessage = 'Game has already ended!';
+          break;
+        case RoomStatus.closed:
+          errorMessage = 'Room has been closed!';
+          break;
+        case RoomStatus.setup:
+        case RoomStatus.waiting:
+          // These are joinable
+          break;
+      }
+      
+      if (errorMessage != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage)),
           );
         }
         return;

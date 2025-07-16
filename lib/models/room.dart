@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum RoomStatus { setup, waiting, inProgress, completed }
+enum RoomStatus { setup, waiting, inProgress, completed, closed }
 
 class RoomSettings {
   final int discussionTime;
