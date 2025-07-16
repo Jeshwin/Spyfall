@@ -61,14 +61,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
     try {
       final userId = UserService.getCurrentUserId();
-      final room = await RoomService.createRoom(
-        createdBy: userId,
-      );
+      final room = await RoomService.createRoom(createdBy: userId);
 
       if (mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => LobbyPage(roomCode: room.roomCode),
+            builder: (context) =>
+                LobbyPage(roomCode: room.roomCode, isHost: true),
           ),
         );
       }
@@ -106,7 +105,7 @@ class _MyHomePageState extends State<MyHomePage> {
               const Spacer(),
               // Logo Icon
               Icon(
-                LucideIcons.eye,
+                LucideIcons.venetianMask,
                 size: 120,
                 color: Theme.of(context).colorScheme.primary,
               ),
@@ -206,15 +205,29 @@ class _JoinGameDialogState extends State<_JoinGameDialog> {
     super.dispose();
   }
 
-  void _joinGame() {
+  void _joinGame() async {
     if (_formKey.currentState!.validate()) {
       final roomCode = _gameCodeController.text.trim().toUpperCase();
-      Navigator.of(context).pop();
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => LobbyPage(roomCode: roomCode),
-        ),
-      );
+      
+      // First check if the room exists
+      final room = await RoomService.getRoomByCode(roomCode);
+      if (room == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Room not found!')),
+          );
+        }
+        return;
+      }
+      
+      if (mounted) {
+        Navigator.of(context).pop();
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => LobbyPage(roomCode: roomCode, isHost: false),
+          ),
+        );
+      }
     }
   }
 

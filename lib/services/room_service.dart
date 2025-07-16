@@ -9,7 +9,7 @@ class RoomService {
   static const String _roomsCollection = 'rooms';
 
   static String _generateRoomCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
     final random = Random();
     return String.fromCharCodes(
       Iterable.generate(
@@ -119,13 +119,15 @@ class RoomService {
   }
 
   static Stream<Room?> watchRoom(String roomCode) {
-    return _firestore.collection(_roomsCollection).doc(roomCode).snapshots().map((
-      snapshot,
-    ) {
-      if (!snapshot.exists) {
-        return null;
-      }
-      return Room.fromJson(snapshot.data()!, roomCode);
-    });
+    return _firestore
+        .collection(_roomsCollection)
+        .doc(roomCode)
+        .snapshots()
+        .map((snapshot) {
+          if (!snapshot.exists) {
+            return null;
+          }
+          return Room.fromJson(snapshot.data()!, roomCode);
+        });
   }
 }
