@@ -23,7 +23,7 @@ class RoomSettings {
 
   static RoomSettings fromJson(Map<String, dynamic> json) {
     return RoomSettings(
-      discussionTime: json['discussionTime'] ?? 480,
+      discussionTime: json['discussionTime'] ?? 360,
       votingTime: json['votingTime'] ?? 120,
       startTimerOnGameStart: json['startTimerOnGameStart'] ?? true,
     );

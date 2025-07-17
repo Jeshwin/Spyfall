@@ -139,10 +139,8 @@ class _LobbyPageState extends State<LobbyPage> {
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => GamePage(
-              roomCode: widget.roomCode,
-              playerName: _playerNameController.text,
-            ),
+            builder: (context) =>
+                GamePage(roomCode: widget.roomCode, playerId: widget.userId),
           ),
         );
       }
@@ -178,10 +176,8 @@ class _LobbyPageState extends State<LobbyPage> {
             mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => GamePage(
-                roomCode: widget.roomCode,
-                playerName: _playerNameController.text,
-              ),
+              builder: (context) =>
+                  GamePage(roomCode: widget.roomCode, playerId: widget.userId),
             ),
           );
         }
@@ -235,10 +231,14 @@ class _LobbyPageState extends State<LobbyPage> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              Clipboard.setData(ClipboardData(text: widget.roomCode));
+                              Clipboard.setData(
+                                ClipboardData(text: widget.roomCode),
+                              );
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Room code ${widget.roomCode} copied to clipboard!'),
+                                  content: Text(
+                                    'Room code ${widget.roomCode} copied to clipboard!',
+                                  ),
                                   duration: const Duration(seconds: 2),
                                 ),
                               );
@@ -249,9 +249,8 @@ class _LobbyPageState extends State<LobbyPage> {
                                 'Space Mono',
                                 textStyle: Theme.of(context)
                                     .textTheme
-                                    .headlineMedium
+                                    .displayLarge
                                     ?.copyWith(
-                                      fontSize: 40,
                                       color: Theme.of(
                                         context,
                                       ).colorScheme.primary,
@@ -261,9 +260,9 @@ class _LobbyPageState extends State<LobbyPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 16),
                       if (widget.isHost) ..._buildHostSettings(),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _playerNameController,
                         decoration: const InputDecoration(
@@ -292,8 +291,8 @@ class _LobbyPageState extends State<LobbyPage> {
                         },
                         onChanged: _updatePlayerName,
                       ),
-                      const SizedBox(height: 32),
-                      _buildPlayersList(),
+                      const SizedBox(height: 8),
+                      Expanded(child: _buildPlayersList()),
                     ],
                   ),
                 ),
@@ -392,59 +391,48 @@ class _LobbyPageState extends State<LobbyPage> {
 
         final players = snapshot.data!;
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Players in Lobby (${players.length})',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              height: 200,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: players.isEmpty
-                  ? const Center(child: Text('No players in lobby'))
-                  : Scrollbar(
-                      child: ListView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: players.length,
-                        itemBuilder: (context, index) {
-                          final player = players[index];
-                          return ListTile(
-                            leading: Icon(
-                              player.isHost
-                                  ? LucideIcons.crown
-                                  : LucideIcons.user,
-                              color: player.isHost
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.onSurface,
-                            ),
-                            title: Text(player.name),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (player.isReady)
-                                  Icon(
-                                    LucideIcons.check,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                                if (player.isHost) const Text('HOST'),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
+        if (players.isEmpty) {
+          return const Center(child: Text('No players in lobby'));
+        }
+
+        return SizedBox(
+          height: 200,
+          child: Scrollbar(
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              itemCount: players.length,
+              itemBuilder: (context, index) {
+                final player = players[index];
+
+                if (player.id == widget.userId) {
+                  return SizedBox();
+                }
+
+                return Card.filled(
+                  child: ListTile(
+                    leading: Icon(
+                      player.isHost ? LucideIcons.crown : LucideIcons.user,
+                      color: player.isHost
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurface,
                     ),
+                    title: Text(player.name),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (player.isReady)
+                          Icon(
+                            LucideIcons.check,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        if (player.isHost) const Text('HOST'),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
-          ],
+          ),
         );
       },
     );
@@ -454,8 +442,7 @@ class _LobbyPageState extends State<LobbyPage> {
     return [
       Column(
         children: [
-          Text('Settings', style: Theme.of(context).textTheme.headlineLarge),
-          const SizedBox(height: 16),
+          Text('Settings', style: Theme.of(context).textTheme.headlineMedium),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -480,7 +467,6 @@ class _LobbyPageState extends State<LobbyPage> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -504,7 +490,6 @@ class _LobbyPageState extends State<LobbyPage> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../models/player.dart';
@@ -11,23 +10,23 @@ import '../services/room_service.dart';
 
 class GamePage extends StatefulWidget {
   final String roomCode;
-  final String playerName;
+  final String playerId;
 
-  const GamePage({super.key, required this.roomCode, required this.playerName});
+  const GamePage({super.key, required this.roomCode, required this.playerId});
 
   @override
   State<GamePage> createState() => _GamePageState();
 }
 
 class _GamePageState extends State<GamePage> {
-  String? _currentPlayerId;
+  Player? player;
   Timer? _gameTimer;
   int _remainingTime = 0;
 
   @override
   void initState() {
     super.initState();
-    _findCurrentPlayer();
+    _getPlayerData();
     _startGameTimer();
   }
 
@@ -37,16 +36,11 @@ class _GamePageState extends State<GamePage> {
     super.dispose();
   }
 
-  void _findCurrentPlayer() async {
-    final players = await PlayerService.getPlayersInGame(widget.roomCode);
-    for (final player in players) {
-      if (player.name == widget.playerName) {
-        setState(() {
-          _currentPlayerId = player.id;
-        });
-        break;
-      }
-    }
+  void _getPlayerData() async {
+    final playerData = await PlayerService.getPlayerById(widget.playerId);
+    setState(() {
+      player = playerData;
+    });
   }
 
   void _startGameTimer() async {
@@ -86,13 +80,9 @@ class _GamePageState extends State<GamePage> {
     );
   }
 
-  void _showRoleDialog() async {
-    if (_currentPlayerId == null) return;
-
-    final player = await PlayerService.getPlayerById(_currentPlayerId!);
+  void _showRoleDialog() {
     if (player == null) return;
-
-    final isSpy = player.isSpy;
+    final isSpy = player!.isSpy;
 
     showDialog(
       context: context,
@@ -109,7 +99,7 @@ class _GamePageState extends State<GamePage> {
             ),
             const SizedBox(height: 16),
             Text(
-              isSpy ? 'Role: Spy' : 'Role: $_currentPlayerId',
+              isSpy ? 'Role: Spy' : 'Role: ${widget.playerId}',
               style: TextStyle(
                 color: isSpy
                     ? Theme.of(context).colorScheme.error
@@ -166,7 +156,6 @@ class _GamePageState extends State<GamePage> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              Navigator.of(context).pop();
             },
             child: const Text('Leave'),
           ),
@@ -208,35 +197,46 @@ class _GamePageState extends State<GamePage> {
           child: Column(
             children: [
               // Timer Card
-              Card(
-                color: Theme.of(context).colorScheme.errorContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        LucideIcons.clock,
-                        color: Theme.of(context).colorScheme.onErrorContainer,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatTime(_remainingTime),
-                        style: GoogleFonts.spaceMono(
-                          textStyle: Theme.of(context).textTheme.headlineMedium
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onErrorContainer,
-                                fontWeight: FontWeight.bold,
-                              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Card(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              LucideIcons.clock,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onErrorContainer,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _formatTime(_remainingTime),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onErrorContainer,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  Card(
+                    child: IconButton(
+                      onPressed: null,
+                      icon: Icon(LucideIcons.play),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
 
               // Player Info Card
               Card(
@@ -250,157 +250,103 @@ class _GamePageState extends State<GamePage> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Player: ${widget.playerName}',
+                        widget.playerId,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
 
               // Role Button
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    children: [
-                      Icon(
-                        LucideIcons.eye,
-                        size: 48,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'View Your Role',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface,
-                              fontWeight: FontWeight.bold,
-                            ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _showRoleDialog,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary,
-                          foregroundColor: Theme.of(
-                            context,
-                          ).colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 24,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text('View Role & Location'),
-                      ),
-                    ],
+              ElevatedButton.icon(
+                onPressed: _showRoleDialog,
+                icon: const Icon(LucideIcons.eye),
+                label: const Text('View Role'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 24,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Players List
-              Expanded(
-                child: StreamBuilder<List<Player>>(
-                  stream: PlayerService.watchPlayersInGame(widget.roomCode),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text('Error: ${snapshot.error}'),
-                        ),
-                      );
-                    }
-
-                    if (!snapshot.hasData) {
-                      return const Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Center(child: CircularProgressIndicator()),
-                        ),
-                      );
-                    }
-
-                    final players = snapshot.data!;
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Players (${players.length})',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Expanded(
-                              child: ListView.builder(
-                                itemCount: players.length,
-                                itemBuilder: (context, index) {
-                                  final player = players[index];
-                                  final isCurrentPlayer =
-                                      player.name == widget.playerName;
-
-                                  return ListTile(
-                                    leading: Icon(
-                                      player.isHost
-                                          ? LucideIcons.crown
-                                          : LucideIcons.user,
-                                      color: player.isHost
-                                          ? Theme.of(
-                                              context,
-                                            ).colorScheme.primary
-                                          : Theme.of(
-                                              context,
-                                            ).colorScheme.onSurface,
-                                    ),
-                                    title: Text(
-                                      player.name,
-                                      style: isCurrentPlayer
-                                          ? TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.primary,
-                                            )
-                                          : null,
-                                    ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (isCurrentPlayer)
-                                          Icon(
-                                            LucideIcons.star,
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.primary,
-                                          ),
-                                        if (player.isHost) const Text('HOST'),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
+              _buildPlayersList(),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPlayersList() {
+    return StreamBuilder<List<Player>>(
+      stream: PlayerService.watchPlayersInGame(widget.roomCode),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Text('Error: ${snapshot.error}');
+        }
+
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final players = snapshot.data!;
+
+        if (players.isEmpty) {
+          return const Center(child: Text('No players in lobby'));
+        }
+
+        return SizedBox(
+          height: 200,
+          child: Scrollbar(
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              itemCount: players.length,
+              itemBuilder: (context, index) {
+                final player = players[index];
+
+                if (player.id == widget.playerId) {
+                  return SizedBox();
+                }
+
+                return Card.filled(
+                  child: ListTile(
+                    leading: Icon(
+                      player.isHost ? LucideIcons.crown : LucideIcons.user,
+                      color: player.isHost
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurface,
+                    ),
+                    title: Text(player.name),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (player.isReady)
+                          Icon(
+                            LucideIcons.check,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        if (player.isHost) const Text('HOST'),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }
