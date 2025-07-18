@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/image_service.dart';
+import 'cross_painter.dart';
 
 class LocationCard extends StatefulWidget {
   final String location;
@@ -102,10 +103,20 @@ class _LocationCardState extends State<LocationCard> {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.3),
-                      Colors.black.withOpacity(0.7),
-                    ],
+                    colors: widget.isCrossedOut
+                        ? [
+                            Colors.red.shade900.withAlpha(73),
+                            Colors.red.shade900.withAlpha(255 - 73),
+                          ]
+                        : (widget.isCurrentLocation
+                              ? [
+                                  Colors.green.shade900.withAlpha(73),
+                                  Colors.green.shade900.withAlpha(255 - 73),
+                                ]
+                              : [
+                                  Colors.black.withAlpha(73),
+                                  Colors.black.withAlpha(255 - 73),
+                                ]),
                   ),
                 ),
               ),
@@ -115,42 +126,39 @@ class _LocationCardState extends State<LocationCard> {
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: Center(
-                child: Stack(
-                  children: [
-                    Text(
-                      widget.location,
-                      style: TextStyle(
-                        fontWeight: widget.isCurrentLocation
-                            ? FontWeight.bold
-                            : FontWeight.w600,
-                        fontSize: 14,
-                        color: widget.isCrossedOut
-                            ? Colors.red[800]
-                            : Colors.white,
-                        shadows: [
-                          Shadow(
-                            offset: const Offset(1, 1),
-                            blurRadius: 2,
-                            color: Colors.black.withOpacity(0.8),
-                          ),
-                        ],
+                child: Text(
+                  widget.location,
+                  style: TextStyle(
+                    fontWeight: widget.isCurrentLocation
+                        ? FontWeight.bold
+                        : FontWeight.w600,
+                    fontSize: 14,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        offset: const Offset(1, 1),
+                        blurRadius: 2,
+                        color: Colors.black..withAlpha(170),
                       ),
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 2,
-                    ),
-                    if (widget.isCrossedOut)
-                      Positioned.fill(
-                        child: Icon(
-                          Icons.close,
-                          size: 48,
-                          color: Colors.red[800]!.withOpacity(0.9),
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
               ),
             ),
+
+            // Crossed-out location
+            if (widget.isCrossedOut)
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: CrossPainter(
+                    color: Colors.red.shade900.withAlpha(200),
+                    strokeWidth: 4.0,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
