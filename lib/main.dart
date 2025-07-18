@@ -7,12 +7,17 @@ import 'constants/constants.dart';
 import 'firebase_options.dart';
 import 'models/room.dart';
 import 'pages/lobby_page.dart';
+import 'services/app_lifecycle_service.dart';
 import 'services/room_service.dart';
 import 'services/user_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  
+  // Initialize app lifecycle service
+  AppLifecycleService().initialize();
+  
   runApp(const MyApp());
 }
 

@@ -7,9 +7,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:yaml/yaml.dart';
 
+import '../main.dart';
 import '../models/player.dart';
 import '../models/room.dart';
 import '../pages/lobby_page.dart';
+import '../services/app_lifecycle_service.dart';
 import '../services/player_service.dart';
 import '../services/room_service.dart';
 import '../widgets/location_card.dart';
@@ -38,6 +40,7 @@ class _GamePageState extends State<GamePage> {
   List<String> _questions = [];
   String _currentQuestion = '';
   bool _isHost = false;
+  bool _showHostLeftDialog = false;
 
   @override
   void initState() {
@@ -46,11 +49,14 @@ class _GamePageState extends State<GamePage> {
     _loadLocations();
     _loadQuestions();
     _watchRoomChanges();
+    _watchHostStatus();
   }
 
   @override
   void dispose() {
     _gameTimer?.cancel();
+    // Clear lifecycle service when leaving game
+    AppLifecycleService().clearCurrentPlayer();
     super.dispose();
   }
 
@@ -61,6 +67,13 @@ class _GamePageState extends State<GamePage> {
           player = playerData;
           _isHost = playerData.isHost;
         });
+        
+        // Update lifecycle service with current player info
+        AppLifecycleService().setCurrentPlayer(
+          playerId: widget.playerId,
+          roomCode: widget.roomCode,
+          isHost: playerData.isHost,
+        );
       }
     });
   }
@@ -76,6 +89,19 @@ class _GamePageState extends State<GamePage> {
         if (_gameTimer == null) {
           _initializeTimer(roomData);
         }
+      }
+    });
+  }
+
+  void _watchHostStatus() {
+    RoomService.watchRoom(widget.roomCode).listen((roomData) {
+      if (roomData != null &&
+          roomData.status == RoomStatus.closed &&
+          mounted &&
+          !_isHost &&
+          !_showHostLeftDialog) {
+        _showHostLeftDialog = true;
+        _showHostLeftGameDialog();
       }
     });
   }
@@ -293,6 +319,35 @@ class _GamePageState extends State<GamePage> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showHostLeftGameDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Host Left'),
+          content: const Text(
+            'The host has left the game. You have been kicked out of the game.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (context) => const MyHomePage(title: 'Spyfall'),
+                  ),
+                  (route) => false,
+                );
+              },
+              child: const Text('Back to Home'),
+            ),
+          ],
+        );
+      },
     );
   }
 

@@ -7,6 +7,7 @@ import '../constants/constants.dart';
 import '../models/player.dart';
 import '../models/room.dart';
 import '../pages/game_page.dart';
+import '../services/app_lifecycle_service.dart';
 import '../services/player_service.dart';
 import '../services/room_service.dart';
 
@@ -47,11 +48,20 @@ class _LobbyPageState extends State<LobbyPage> {
     _initializePlayer();
     _initializeRoomSettings();
     _watchRoomStatus();
+    
+    // Set current player info in lifecycle service
+    AppLifecycleService().setCurrentPlayer(
+      playerId: widget.userId,
+      roomCode: widget.roomCode,
+      isHost: widget.isHost,
+    );
   }
 
   @override
   void dispose() {
     _playerNameController.dispose();
+    // Clear lifecycle service when leaving lobby
+    AppLifecycleService().clearCurrentPlayer();
     super.dispose();
   }
 
