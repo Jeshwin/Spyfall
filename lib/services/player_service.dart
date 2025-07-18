@@ -25,7 +25,7 @@ class PlayerService {
         name: name,
         isSpy: false,
         isHost: isHost,
-        isReady: isHost,
+        status: isHost ? PlayerStatus.ready : PlayerStatus.notReady,
         // Host is automatically ready
         joinedAt: Timestamp.now(),
       );
@@ -67,11 +67,44 @@ class PlayerService {
   /// Updates player ready status
   static Future<void> updatePlayerReady(String playerId, bool isReady) async {
     try {
+      final status = isReady ? PlayerStatus.ready : PlayerStatus.notReady;
       await _firestore.collection(_playersCollection).doc(playerId).update({
-        'isReady': isReady,
+        'status': status.name,
       });
     } catch (e) {
       throw Exception('Failed to update player ready status: $e');
+    }
+  }
+
+  /// Updates player status
+  static Future<void> updatePlayerStatus(String playerId, PlayerStatus status) async {
+    try {
+      await _firestore.collection(_playersCollection).doc(playerId).update({
+        'status': status.name,
+      });
+    } catch (e) {
+      throw Exception('Failed to update player status: $e');
+    }
+  }
+
+  /// Updates all players in a game to in_game status
+  static Future<void> setAllPlayersInGame(String gameId) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection(_playersCollection)
+          .where('gameId', isEqualTo: gameId)
+          .get();
+
+      final batch = _firestore.batch();
+      for (final doc in querySnapshot.docs) {
+        batch.update(doc.reference, {
+          'status': PlayerStatus.inGame.name,
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to set players in game: $e');
     }
   }
 

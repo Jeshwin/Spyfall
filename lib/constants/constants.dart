@@ -32,4 +32,10 @@ class AppConstants {
     inversePrimary: Color(0xFFfe640b),
     surfaceTint: Color(0xFFfe640b),
   );
+
+  static final defaultSettings = {
+    "discussionTime": 480, // 8 minutes
+    "votingTime": 120, // 2 minutes
+    "startTimerOnGameStart": true,
+  };
 }

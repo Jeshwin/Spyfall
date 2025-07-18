@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../constants/constants.dart';
 import '../models/player.dart';
 import '../models/room.dart';
 import '../pages/game_page.dart';
@@ -31,17 +32,20 @@ class _LobbyPageState extends State<LobbyPage> {
   final TextEditingController _playerNameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  int _timerLength = 360; // 5 minutes default
-  int _votingTimeLength = 120; // 1 minute default
-  bool _startTimerImmediately = true;
+  int _timerLength = AppConstants.defaultSettings["discussionTime"] as int;
+  int _votingTimeLength = AppConstants.defaultSettings["votingTime"] as int;
+  bool _startTimerImmediately =
+      AppConstants.defaultSettings["startTimerOnGameStart"] as bool;
 
   bool _isReady = false;
   bool _showHostLeftDialog = false;
+  int? _lastKnownGameSession;
 
   @override
   void initState() {
     super.initState();
     _initializePlayer();
+    _initializeRoomSettings();
     _watchRoomStatus();
   }
 
@@ -73,6 +77,22 @@ class _LobbyPageState extends State<LobbyPage> {
           ),
         );
       }
+    }
+  }
+
+  void _initializeRoomSettings() async {
+    try {
+      final room = await RoomService.getRoomByCode(widget.roomCode);
+      if (room != null && mounted) {
+        setState(() {
+          _timerLength = room.settings.discussionTime;
+          _votingTimeLength = room.settings.votingTime;
+          _startTimerImmediately = room.settings.startTimerOnGameStart;
+        });
+      }
+    } catch (e) {
+      // Use default settings if room can't be loaded
+      // No need to show error to user as defaults will work
     }
   }
 
@@ -120,13 +140,20 @@ class _LobbyPageState extends State<LobbyPage> {
         return;
       }
 
-      // Update room status to in_progress
+      // Update room status to in_progress, increment game session, and set timer state
       final room = await RoomService.getRoomByCode(widget.roomCode);
       if (room != null) {
         await RoomService.updateRoom(
-          room.copyWith(status: RoomStatus.inProgress),
+          room.copyWith(
+            status: RoomStatus.inProgress,
+            gameSession: room.gameSession + 1, // Increment game session for new game
+            isTimerPaused: !room.settings.startTimerOnGameStart,
+          ),
         );
       }
+
+      // Set all players to in_game status
+      await PlayerService.setAllPlayersInGame(widget.roomCode);
 
       // Assign random location and roles
       RoomService.selectRandomLocation(widget.roomCode).then((
@@ -162,6 +189,29 @@ class _LobbyPageState extends State<LobbyPage> {
     }
   }
 
+  Future<void> _updateSettings() async {
+    if (!widget.isHost) return;
+
+    try {
+      final settings = RoomSettings(
+        discussionTime: _timerLength,
+        votingTime: _votingTimeLength,
+        startTimerOnGameStart: _startTimerImmediately,
+      );
+
+      await RoomService.updateRoomSettings(widget.roomCode, settings);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update settings: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   void _watchRoomStatus() {
     if (!widget.isHost) {
       RoomService.watchRoom(widget.roomCode).listen((room) {
@@ -174,12 +224,20 @@ class _LobbyPageState extends State<LobbyPage> {
         } else if (room != null &&
             room.status == RoomStatus.inProgress &&
             mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) =>
-                  GamePage(roomCode: widget.roomCode, playerId: widget.userId),
-            ),
-          );
+          // Check if this is a NEW game session (not an ongoing game)
+          if (_lastKnownGameSession == null || 
+              room.gameSession > _lastKnownGameSession!) {
+            // This is a new game start - navigate to game page
+            _lastKnownGameSession = room.gameSession;
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) =>
+                    GamePage(roomCode: widget.roomCode, playerId: widget.userId),
+              ),
+            );
+          }
+          // If gameSession hasn't changed, this means the game was already 
+          // in progress and we're a returning player who should stay in lobby
         }
       });
     }
@@ -420,10 +478,15 @@ class _LobbyPageState extends State<LobbyPage> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (player.isReady)
+                        if (player.status == PlayerStatus.ready)
                           Icon(
                             LucideIcons.check,
                             color: Theme.of(context).colorScheme.primary,
+                          )
+                        else if (player.status == PlayerStatus.inGame)
+                          Icon(
+                            LucideIcons.gamepad2,
+                            color: Theme.of(context).colorScheme.secondary,
                           ),
                         if (player.isHost) const Text('HOST'),
                       ],
@@ -459,10 +522,11 @@ class _LobbyPageState extends State<LobbyPage> {
                   DropdownMenuItem(value: 480, child: Text('8 minutes')),
                   DropdownMenuItem(value: 600, child: Text('10 minutes')),
                 ],
-                onChanged: (value) {
+                onChanged: (value) async {
                   setState(() {
                     _timerLength = value!;
                   });
+                  await _updateSettings();
                 },
               ),
             ],
@@ -482,10 +546,11 @@ class _LobbyPageState extends State<LobbyPage> {
                   DropdownMenuItem(value: 90, child: Text('1.5 minutes')),
                   DropdownMenuItem(value: 120, child: Text('2 minutes')),
                 ],
-                onChanged: (value) {
+                onChanged: (value) async {
                   setState(() {
                     _votingTimeLength = value!;
                   });
+                  await _updateSettings();
                 },
               ),
             ],
@@ -499,10 +564,11 @@ class _LobbyPageState extends State<LobbyPage> {
               ),
               Switch(
                 value: _startTimerImmediately,
-                onChanged: (value) {
+                onChanged: (value) async {
                   setState(() {
                     _startTimerImmediately = value;
                   });
+                  await _updateSettings();
                 },
               ),
             ],

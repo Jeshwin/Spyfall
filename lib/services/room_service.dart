@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:spyfall/constants/constants.dart';
 import 'package:yaml/yaml.dart';
 
 import '../models/room.dart';
@@ -58,12 +59,7 @@ class RoomService {
     try {
       final roomCode = await _generateUniqueRoomCode();
       final defaultSettings =
-          settings ??
-          RoomSettings(
-            discussionTime: 480, // 8 minutes
-            votingTime: 120, // 2 minutes
-            startTimerOnGameStart: true,
-          );
+          settings ?? RoomSettings.fromJson(AppConstants.defaultSettings);
 
       final room = Room(
         id: roomCode,
@@ -110,6 +106,31 @@ class RoomService {
           .update(room.toJson());
     } catch (e) {
       throw Exception('Failed to update room: $e');
+    }
+  }
+
+  static Future<void> updateRoomSettings(String roomCode, RoomSettings settings) async {
+    try {
+      await _firestore
+          .collection(_roomsCollection)
+          .doc(roomCode)
+          .update({'settings': settings.toJson()});
+    } catch (e) {
+      throw Exception('Failed to update room settings: $e');
+    }
+  }
+
+  static Future<void> updateTimerState(String roomCode, bool isTimerPaused) async {
+    try {
+      await _firestore
+          .collection(_roomsCollection)
+          .doc(roomCode)
+          .update({
+        'isTimerPaused': isTimerPaused,
+        'timerLastUpdated': Timestamp.now(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update timer state: $e');
     }
   }
 

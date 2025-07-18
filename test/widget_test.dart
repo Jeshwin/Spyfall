@@ -38,7 +38,7 @@ class _TestLobbyPageState extends State<TestLobbyPage> {
         name: 'Player',
         isSpy: false,
         isHost: widget.isHost,
-        isReady: widget.isHost,
+        status: widget.isHost ? PlayerStatus.ready : PlayerStatus.notReady,
         joinedAt: Timestamp.now(),
       ),
     );

@@ -79,16 +79,6 @@ locations:
       - "Accountant"
       - "Delivery Boy"
 
-  - name: "Crusader Army"
-    roles:
-      - "Monk"
-      - "Imprisoned Arab"
-      - "Servant"
-      - "Bishop"
-      - "Squire"
-      - "Archer"
-      - "Knight"
-
   - name: "Day Spa"
     roles:
       - "Customer"

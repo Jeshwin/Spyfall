@@ -1,12 +1,20 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:yaml/yaml.dart';
 
 import '../models/player.dart';
+import '../models/room.dart';
+import '../pages/lobby_page.dart';
 import '../services/player_service.dart';
 import '../services/room_service.dart';
+import '../widgets/location_card.dart';
+
+enum PlayerMark { none, suspicious, cleared }
 
 class GamePage extends StatefulWidget {
   final String roomCode;
@@ -20,14 +28,24 @@ class GamePage extends StatefulWidget {
 
 class _GamePageState extends State<GamePage> {
   Player? player;
+  Room? room;
   Timer? _gameTimer;
   int _remainingTime = 0;
+  bool _isTimerPaused = false;
+  final Map<String, PlayerMark> _playerMarks = {};
+  final Set<String> _crossedOutLocations = {};
+  List<String> _locations = [];
+  List<String> _questions = [];
+  String _currentQuestion = '';
+  bool _isHost = false;
 
   @override
   void initState() {
     super.initState();
     _getPlayerData();
-    _startGameTimer();
+    _loadLocations();
+    _loadQuestions();
+    _watchRoomChanges();
   }
 
   @override
@@ -40,26 +58,113 @@ class _GamePageState extends State<GamePage> {
     final playerData = await PlayerService.getPlayerById(widget.playerId);
     setState(() {
       player = playerData;
+      _isHost = playerData?.isHost ?? false;
     });
   }
 
-  void _startGameTimer() async {
-    final room = await RoomService.getRoomByCode(widget.roomCode);
-    if (room != null) {
-      setState(() {
-        _remainingTime = room.settings.discussionTime;
-      });
+  void _watchRoomChanges() {
+    RoomService.watchRoom(widget.roomCode).listen((roomData) {
+      if (roomData != null) {
+        setState(() {
+          room = roomData;
+          _isTimerPaused = roomData.isTimerPaused;
+        });
 
-      _gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (_remainingTime > 0) {
-          setState(() {
-            _remainingTime--;
-          });
-        } else {
-          timer.cancel();
-          _showTimeUpDialog();
+        if (_gameTimer == null) {
+          _initializeTimer(roomData);
         }
+      }
+    });
+  }
+
+  void _initializeTimer(Room roomData) {
+    setState(() {
+      _remainingTime = roomData.settings.discussionTime;
+      _isTimerPaused = roomData.settings.startTimerOnGameStart ? false : true;
+    });
+
+    _gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!_isTimerPaused && _remainingTime > 0) {
+        setState(() {
+          _remainingTime--;
+        });
+      } else if (_remainingTime <= 0) {
+        timer.cancel();
+        _showTimeUpDialog();
+      }
+    });
+  }
+
+  void _toggleTimer() async {
+    if (_isHost) {
+      await RoomService.updateTimerState(widget.roomCode, !_isTimerPaused);
+    }
+  }
+
+  void _loadLocations() async {
+    try {
+      final locationsYaml = await rootBundle.loadString('assets/locations.yml');
+      final yamlData = loadYaml(locationsYaml);
+      final List<dynamic> locations = yamlData['locations'];
+
+      setState(() {
+        _locations = locations.map((loc) => loc['name'] as String).toList();
       });
+    } catch (e) {
+      // Handle error silently - locations will remain empty
+    }
+  }
+
+  void _loadQuestions() async {
+    try {
+      final questionsYaml = await rootBundle.loadString('assets/questions.yml');
+      final yamlData = loadYaml(questionsYaml);
+      final List<dynamic> questions = yamlData['questions'];
+
+      setState(() {
+        _questions = questions.map((q) => q as String).toList();
+        _currentQuestion = _questions.isNotEmpty
+            ? _questions[Random().nextInt(_questions.length)]
+            : '';
+      });
+    } catch (e) {
+      // Handle error silently - questions will remain empty
+    }
+  }
+
+  void _refreshQuestion() {
+    if (_questions.isNotEmpty) {
+      setState(() {
+        _currentQuestion = _questions[Random().nextInt(_questions.length)];
+      });
+    }
+  }
+
+  void _togglePlayerMark(String playerId) {
+    setState(() {
+      final currentMark = _playerMarks[playerId] ?? PlayerMark.none;
+      switch (currentMark) {
+        case PlayerMark.none:
+          _playerMarks[playerId] = PlayerMark.suspicious;
+          break;
+        case PlayerMark.suspicious:
+          _playerMarks[playerId] = PlayerMark.cleared;
+          break;
+        case PlayerMark.cleared:
+          _playerMarks[playerId] = PlayerMark.none;
+          break;
+      }
+    });
+  }
+
+  Color _getPlayerMarkColor(PlayerMark mark) {
+    switch (mark) {
+      case PlayerMark.suspicious:
+        return Theme.of(context).colorScheme.error;
+      case PlayerMark.cleared:
+        return Colors.green;
+      case PlayerMark.none:
+        return Colors.transparent;
     }
   }
 
@@ -87,6 +192,7 @@ class _GamePageState extends State<GamePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: isSpy ? Colors.red[50] : null,
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -99,31 +205,26 @@ class _GamePageState extends State<GamePage> {
             ),
             const SizedBox(height: 16),
             Text(
-              isSpy ? 'Role: Spy' : 'Role: ${widget.playerId}',
+              isSpy ? 'Role: Spy' : 'Role: ${player!.role ?? 'Unknown'}',
               style: TextStyle(
                 color: isSpy
                     ? Theme.of(context).colorScheme.error
                     : Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.bold,
+                fontSize: 28,
               ),
             ),
-            if (isSpy)
-              Text(
-                'Your mission: Blend in and don\'t get caught!',
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
+            const SizedBox(height: 16),
+            Text(
+              isSpy
+                  ? 'Location: ???'
+                  : 'Location: ${room?.location ?? 'Unknown'}',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
               ),
-            if (!isSpy) ...[
-              const SizedBox(height: 16),
-              Text(
-                'Location: School', // TODO: Get actual location
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
         actions: [
@@ -154,8 +255,35 @@ class _GamePageState extends State<GamePage> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
+            onPressed: () async {
+              // Update player status based on whether they are host or not
+              if (_isHost) {
+                // Host keeps their status as ready when leaving game
+                await PlayerService.updatePlayerStatus(
+                  widget.playerId, 
+                  PlayerStatus.ready,
+                );
+              } else {
+                // Non-host players become not ready when leaving game
+                await PlayerService.updatePlayerStatus(
+                  widget.playerId, 
+                  PlayerStatus.notReady,
+                );
+              }
+
+              if (context.mounted) {
+                Navigator.of(context).pop();
+                Navigator.of(context, rootNavigator: true).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => LobbyPage(
+                      roomCode: widget.roomCode,
+                      isHost: _isHost, // Keep host status
+                      userId: widget.playerId,
+                      name: player?.name ?? 'Player',
+                    ),
+                  ),
+                );
+              }
             },
             child: const Text('Leave'),
           ),
@@ -168,6 +296,7 @@ class _GamePageState extends State<GamePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: GestureDetector(
           onTap: () {
             Clipboard.setData(ClipboardData(text: widget.roomCode));
@@ -182,8 +311,9 @@ class _GamePageState extends State<GamePage> {
           },
           child: Text('Room: ${widget.roomCode}'),
         ),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.logOut),
@@ -192,7 +322,7 @@ class _GamePageState extends State<GamePage> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
@@ -201,65 +331,37 @@ class _GamePageState extends State<GamePage> {
                 children: [
                   Expanded(
                     child: Card(
-                      color: Theme.of(context).colorScheme.errorContainer,
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              LucideIcons.clock,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onErrorContainer,
-                            ),
+                            Icon(LucideIcons.clock),
                             const SizedBox(width: 8),
                             Text(
                               _formatTime(_remainingTime),
                               style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onErrorContainer,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                  ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  Card(
-                    child: IconButton(
-                      onPressed: null,
-                      icon: Icon(LucideIcons.play),
+                  if (_isHost)
+                    Card(
+                      child: IconButton(
+                        onPressed: _toggleTimer,
+                        icon: Icon(
+                          _isTimerPaused ? LucideIcons.play : LucideIcons.pause,
+                        ),
+                      ),
                     ),
-                  ),
                 ],
               ),
 
-              // Player Info Card
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      Icon(
-                        LucideIcons.user,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        widget.playerId,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-
               // Role Button
+              const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _showRoleDialog,
                 icon: const Icon(LucideIcons.eye),
@@ -281,7 +383,11 @@ class _GamePageState extends State<GamePage> {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildPlayersList(),
+              _buildPlayersGrid(),
+              const SizedBox(height: 16),
+              _buildLocationsGrid(),
+              const SizedBox(height: 16),
+              _buildQuestionsWidget(),
             ],
           ),
         ),
@@ -289,64 +395,173 @@ class _GamePageState extends State<GamePage> {
     );
   }
 
-  Widget _buildPlayersList() {
-    return StreamBuilder<List<Player>>(
-      stream: PlayerService.watchPlayersInGame(widget.roomCode),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Text('Error: ${snapshot.error}');
-        }
+  Widget _buildPlayersGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Center(
+          child: Text(
+            'Players',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 8),
+        StreamBuilder<List<Player>>(
+          stream: PlayerService.watchPlayersInGame(widget.roomCode),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Text('Error: ${snapshot.error}');
+            }
 
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-        final players = snapshot.data!;
+            final players = snapshot.data!.toList();
 
-        if (players.isEmpty) {
-          return const Center(child: Text('No players in lobby'));
-        }
-
-        return SizedBox(
-          height: 200,
-          child: Scrollbar(
-            child: ListView.builder(
-              physics: const BouncingScrollPhysics(),
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
               itemCount: players.length,
               itemBuilder: (context, index) {
                 final player = players[index];
+                final mark = _playerMarks[player.id] ?? PlayerMark.none;
 
-                if (player.id == widget.playerId) {
-                  return SizedBox();
-                }
-
-                return Card.filled(
-                  child: ListTile(
-                    leading: Icon(
-                      player.isHost ? LucideIcons.crown : LucideIcons.user,
-                      color: player.isHost
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurface,
-                    ),
-                    title: Text(player.name),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (player.isReady)
-                          Icon(
-                            LucideIcons.check,
-                            color: Theme.of(context).colorScheme.primary,
+                return GestureDetector(
+                  onTap: () => _togglePlayerMark(player.id),
+                  child: Card(
+                    color: _getPlayerMarkColor(mark),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Center(
+                        child: Text(
+                          player.name,
+                          style: TextStyle(
+                            color: mark == PlayerMark.none
+                                ? Theme.of(context).colorScheme.onSurface
+                                : Colors.white,
+                            fontWeight: FontWeight.w500,
                           ),
-                        if (player.isHost) const Text('HOST'),
-                      ],
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
                   ),
                 );
               },
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocationsGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Center(
+          child: Text(
+            'Locations',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 8),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 16 / 9,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: _locations.length,
+          itemBuilder: (context, index) {
+            final location = _locations[index];
+            final isCurrentLocation =
+                location == room?.location && !(player?.isSpy ?? false);
+            final isCrossedOut = _crossedOutLocations.contains(location);
+
+            return LocationCard(
+              location: location,
+              isCurrentLocation: isCurrentLocation,
+              isCrossedOut: isCrossedOut,
+              onTap: () {
+                setState(() {
+                  if (isCrossedOut) {
+                    _crossedOutLocations.remove(location);
+                  } else {
+                    _crossedOutLocations.add(location);
+                  }
+                });
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuestionsWidget() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          'Sample Questions',
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          color: Color(0xFFf9e2af),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                Text(
+                  _currentQuestion,
+                  style: GoogleFonts.getFont(
+                    "Permanent Marker",
+                    textStyle: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: _refreshQuestion,
+                  icon: const Icon(LucideIcons.refreshCw),
+                  label: const Text('New Question'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFFdf8e1d),
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 24,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }

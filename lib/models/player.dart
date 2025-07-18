@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+enum PlayerStatus { notReady, ready, inGame }
+
 class Player {
   final String id;
   final String gameId;
@@ -7,7 +9,7 @@ class Player {
   final String? role;
   final bool isSpy;
   final bool isHost;
-  final bool isReady;
+  final PlayerStatus status;
   final String? votedFor;
   final Timestamp joinedAt;
 
@@ -18,7 +20,7 @@ class Player {
     this.role,
     required this.isSpy,
     required this.isHost,
-    required this.isReady,
+    required this.status,
     this.votedFor,
     required this.joinedAt,
   });
@@ -31,13 +33,25 @@ class Player {
       'role': role,
       'isSpy': isSpy,
       'isHost': isHost,
-      'isReady': isReady,
+      'status': status.name,
       'votedFor': votedFor,
       'joinedAt': joinedAt,
     };
   }
 
   static Player fromJson(Map<String, dynamic> json, String playerId) {
+    // Handle backwards compatibility with old isReady field
+    PlayerStatus status;
+    if (json['status'] != null) {
+      status = PlayerStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => PlayerStatus.notReady,
+      );
+    } else {
+      // Backwards compatibility: convert old isReady boolean to status
+      status = (json['isReady'] ?? false) ? PlayerStatus.ready : PlayerStatus.notReady;
+    }
+
     return Player(
       id: playerId,
       gameId: json['gameId'] ?? '',
@@ -45,7 +59,7 @@ class Player {
       role: json['role'],
       isSpy: json['isSpy'] ?? false,
       isHost: json['isHost'] ?? false,
-      isReady: json['isReady'] ?? false,
+      status: status,
       votedFor: json['votedFor'],
       joinedAt: json['joinedAt'] ?? Timestamp.now(),
     );
@@ -58,7 +72,7 @@ class Player {
     String? role,
     bool? isSpy,
     bool? isHost,
-    bool? isReady,
+    PlayerStatus? status,
     String? votedFor,
     Timestamp? joinedAt,
   }) {
@@ -69,9 +83,12 @@ class Player {
       role: role ?? this.role,
       isSpy: isSpy ?? this.isSpy,
       isHost: isHost ?? this.isHost,
-      isReady: isReady ?? this.isReady,
+      status: status ?? this.status,
       votedFor: votedFor ?? this.votedFor,
       joinedAt: joinedAt ?? this.joinedAt,
     );
   }
+
+  // Convenience getter for backwards compatibility
+  bool get isReady => status == PlayerStatus.ready;
 }

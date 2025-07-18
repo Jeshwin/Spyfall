@@ -203,7 +203,7 @@ class _MyHomePageState extends State<MyHomePage> {
 class _JoinGameDialog extends StatefulWidget {
   final String userId;
 
-  const _JoinGameDialog({super.key, required this.userId});
+  const _JoinGameDialog({required this.userId});
 
   @override
   _JoinGameDialogState createState() => _JoinGameDialogState();

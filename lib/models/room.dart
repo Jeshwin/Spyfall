@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:spyfall/constants/constants.dart';
 
 enum RoomStatus { setup, waiting, inProgress, completed, closed }
 
@@ -23,9 +24,14 @@ class RoomSettings {
 
   static RoomSettings fromJson(Map<String, dynamic> json) {
     return RoomSettings(
-      discussionTime: json['discussionTime'] ?? 360,
-      votingTime: json['votingTime'] ?? 120,
-      startTimerOnGameStart: json['startTimerOnGameStart'] ?? true,
+      discussionTime:
+          json['discussionTime'] ??
+          AppConstants.defaultSettings["discussionTime"],
+      votingTime:
+          json['votingTime'] ?? AppConstants.defaultSettings["votingTime"],
+      startTimerOnGameStart:
+          json['startTimerOnGameStart'] ??
+          AppConstants.defaultSettings["startTimerOnGameStart"],
     );
   }
 }
@@ -37,9 +43,12 @@ class Room {
   final String? location;
   final String? spyId;
   final Timestamp? roundStartTime;
+  final int gameSession;
   final Timestamp createdAt;
   final String createdBy;
   final RoomSettings settings;
+  final bool isTimerPaused;
+  final Timestamp? timerLastUpdated;
 
   Room({
     required this.id,
@@ -48,9 +57,12 @@ class Room {
     this.location,
     this.spyId,
     this.roundStartTime,
+    this.gameSession = 0,
     required this.createdAt,
     required this.createdBy,
     required this.settings,
+    this.isTimerPaused = false,
+    this.timerLastUpdated,
   });
 
   Map<String, dynamic> toJson() {
@@ -61,9 +73,12 @@ class Room {
       'location': location,
       'spyId': spyId,
       'roundStartTime': roundStartTime,
+      'gameSession': gameSession,
       'createdAt': createdAt,
       'createdBy': createdBy,
       'settings': settings.toJson(),
+      'isTimerPaused': isTimerPaused,
+      'timerLastUpdated': timerLastUpdated,
     };
   }
 
@@ -78,9 +93,12 @@ class Room {
       location: json['location'],
       spyId: json['spyId'],
       roundStartTime: json['roundStartTime'],
+      gameSession: json['gameSession'] ?? 0,
       createdAt: json['createdAt'] ?? Timestamp.now(),
       createdBy: json['createdBy'] ?? '',
       settings: RoomSettings.fromJson(json['settings'] ?? {}),
+      isTimerPaused: json['isTimerPaused'] ?? false,
+      timerLastUpdated: json['timerLastUpdated'],
     );
   }
 
@@ -91,9 +109,12 @@ class Room {
     String? location,
     String? spyId,
     Timestamp? roundStartTime,
+    int? gameSession,
     Timestamp? createdAt,
     String? createdBy,
     RoomSettings? settings,
+    bool? isTimerPaused,
+    Timestamp? timerLastUpdated,
   }) {
     return Room(
       id: id ?? this.id,
@@ -102,9 +123,12 @@ class Room {
       location: location ?? this.location,
       spyId: spyId ?? this.spyId,
       roundStartTime: roundStartTime ?? this.roundStartTime,
+      gameSession: gameSession ?? this.gameSession,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
       settings: settings ?? this.settings,
+      isTimerPaused: isTimerPaused ?? this.isTimerPaused,
+      timerLastUpdated: timerLastUpdated ?? this.timerLastUpdated,
     );
   }
 }
