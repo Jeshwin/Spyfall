@@ -157,6 +157,20 @@ class PlayerService {
     }
   }
 
+  /// Stream of a specific player by ID
+  static Stream<Player?> watchPlayerById(String playerId) {
+    return _firestore
+        .collection(_playersCollection)
+        .doc(playerId)
+        .snapshots()
+        .map((doc) {
+      if (!doc.exists) {
+        return null;
+      }
+      return Player.fromJson(doc.data()!, playerId);
+    });
+  }
+
   /// Removes a player from the game
   static Future<void> removePlayer(String playerId) async {
     try {
@@ -285,7 +299,7 @@ class PlayerService {
         return false;
       }
 
-      return players.every((player) => player.isReady);
+      return players.every((player) => player.status == PlayerStatus.ready);
     } catch (e) {
       throw Exception('Failed to check if all players are ready: $e');
     }

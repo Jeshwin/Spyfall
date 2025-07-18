@@ -42,7 +42,7 @@ class _GamePageState extends State<GamePage> {
   @override
   void initState() {
     super.initState();
-    _getPlayerData();
+    _watchPlayerData();
     _loadLocations();
     _loadQuestions();
     _watchRoomChanges();
@@ -54,11 +54,14 @@ class _GamePageState extends State<GamePage> {
     super.dispose();
   }
 
-  void _getPlayerData() async {
-    final playerData = await PlayerService.getPlayerById(widget.playerId);
-    setState(() {
-      player = playerData;
-      _isHost = playerData?.isHost ?? false;
+  void _watchPlayerData() {
+    PlayerService.watchPlayerById(widget.playerId).listen((playerData) {
+      if (playerData != null) {
+        setState(() {
+          player = playerData;
+          _isHost = playerData.isHost;
+        });
+      }
     });
   }
 
@@ -189,6 +192,8 @@ class _GamePageState extends State<GamePage> {
     if (player == null) return;
     final isSpy = player!.isSpy;
 
+    player?.debugPrint();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -199,9 +204,7 @@ class _GamePageState extends State<GamePage> {
             Icon(
               isSpy ? LucideIcons.userX : LucideIcons.userCheck,
               size: 64,
-              color: isSpy
-                  ? Theme.of(context).colorScheme.error
-                  : Theme.of(context).colorScheme.primary,
+              color: isSpy ? Theme.of(context).colorScheme.error : Colors.green,
             ),
             const SizedBox(height: 16),
             Text(
@@ -209,7 +212,7 @@ class _GamePageState extends State<GamePage> {
               style: TextStyle(
                 color: isSpy
                     ? Theme.of(context).colorScheme.error
-                    : Theme.of(context).colorScheme.primary,
+                    : Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
                 fontSize: 28,
               ),
@@ -220,7 +223,7 @@ class _GamePageState extends State<GamePage> {
                   ? 'Location: ???'
                   : 'Location: ${room?.location ?? 'Unknown'}',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
+                color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
@@ -243,6 +246,7 @@ class _GamePageState extends State<GamePage> {
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
+
   void _leaveGame() {
     showDialog(
       context: context,
@@ -260,13 +264,13 @@ class _GamePageState extends State<GamePage> {
               if (_isHost) {
                 // Host keeps their status as ready when leaving game
                 await PlayerService.updatePlayerStatus(
-                  widget.playerId, 
+                  widget.playerId,
                   PlayerStatus.ready,
                 );
               } else {
                 // Non-host players become not ready when leaving game
                 await PlayerService.updatePlayerStatus(
-                  widget.playerId, 
+                  widget.playerId,
                   PlayerStatus.notReady,
                 );
               }

@@ -91,4 +91,9 @@ class Player {
 
   // Convenience getter for backwards compatibility
   bool get isReady => status == PlayerStatus.ready;
+
+  // Debug method to print player information
+  void debugPrint() {
+    print('Player{id: $id, gameId: $gameId, name: $name, role: $role, isSpy: $isSpy, isHost: $isHost, status: $status, votedFor: $votedFor, joinedAt: $joinedAt}');
+  }
 }

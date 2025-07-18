@@ -248,7 +248,7 @@ class _TestLobbyPageState extends State<TestLobbyPage> {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (player.isReady)
+                              if (player.status == PlayerStatus.ready)
                                 Icon(
                                   LucideIcons.check,
                                   color: Theme.of(context).colorScheme.primary,

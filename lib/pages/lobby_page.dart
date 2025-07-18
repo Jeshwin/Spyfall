@@ -37,7 +37,7 @@ class _LobbyPageState extends State<LobbyPage> {
   bool _startTimerImmediately =
       AppConstants.defaultSettings["startTimerOnGameStart"] as bool;
 
-  bool _isReady = false;
+  PlayerStatus _playerStatus = PlayerStatus.notReady;
   bool _showHostLeftDialog = false;
   int? _lastKnownGameSession;
 
@@ -65,7 +65,7 @@ class _LobbyPageState extends State<LobbyPage> {
       );
 
       setState(() {
-        _isReady = player.isReady;
+        _playerStatus = player.status;
         _playerNameController.text = player.name;
       });
     } catch (e) {
@@ -118,10 +118,19 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   void _toggleReady() async {
-    final newReadyState = !_isReady;
-    await PlayerService.updatePlayerReady(widget.userId, newReadyState);
+    PlayerStatus newStatus;
+    if (_playerStatus == PlayerStatus.ready) {
+      newStatus = PlayerStatus.notReady;
+    } else if (_playerStatus == PlayerStatus.notReady) {
+      newStatus = PlayerStatus.ready;
+    } else {
+      // If player is somehow in game but can press toggle, do nothing
+      return;
+    }
+    
+    await PlayerService.updatePlayerStatus(widget.userId, newStatus);
     setState(() {
-      _isReady = newReadyState;
+      _playerStatus = newStatus;
     });
   }
 
@@ -146,7 +155,8 @@ class _LobbyPageState extends State<LobbyPage> {
         await RoomService.updateRoom(
           room.copyWith(
             status: RoomStatus.inProgress,
-            gameSession: room.gameSession + 1, // Increment game session for new game
+            gameSession: room.gameSession + 1,
+            // Increment game session for new game
             isTimerPaused: !room.settings.startTimerOnGameStart,
           ),
         );
@@ -223,20 +233,24 @@ class _LobbyPageState extends State<LobbyPage> {
           _showHostLeftGameDialog();
         } else if (room != null &&
             room.status == RoomStatus.inProgress &&
-            mounted) {
+            mounted &&
+            _playerStatus == PlayerStatus.ready) {
+          // Only route to game if player status is ready
           // Check if this is a NEW game session (not an ongoing game)
-          if (_lastKnownGameSession == null || 
+          if (_lastKnownGameSession == null ||
               room.gameSession > _lastKnownGameSession!) {
             // This is a new game start - navigate to game page
             _lastKnownGameSession = room.gameSession;
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                builder: (context) =>
-                    GamePage(roomCode: widget.roomCode, playerId: widget.userId),
+                builder: (context) => GamePage(
+                  roomCode: widget.roomCode,
+                  playerId: widget.userId,
+                ),
               ),
             );
           }
-          // If gameSession hasn't changed, this means the game was already 
+          // If gameSession hasn't changed, this means the game was already
           // in progress and we're a returning player who should stay in lobby
         }
       });
@@ -382,7 +396,7 @@ class _LobbyPageState extends State<LobbyPage> {
                         final players = snapshot.data ?? [];
                         final allReady =
                             players.isNotEmpty &&
-                            players.every((p) => p.isReady);
+                            players.every((p) => p.status == PlayerStatus.ready);
 
                         return ElevatedButton(
                           onPressed: widget.isHost
@@ -391,12 +405,12 @@ class _LobbyPageState extends State<LobbyPage> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: widget.isHost
                                 ? Theme.of(context).colorScheme.primary
-                                : (_isReady
+                                : (_playerStatus == PlayerStatus.ready
                                       ? Theme.of(context).colorScheme.secondary
                                       : Theme.of(context).colorScheme.primary),
                             foregroundColor: widget.isHost
                                 ? Theme.of(context).colorScheme.onPrimary
-                                : (_isReady
+                                : (_playerStatus == PlayerStatus.ready
                                       ? Theme.of(
                                           context,
                                         ).colorScheme.onSecondary
@@ -420,7 +434,7 @@ class _LobbyPageState extends State<LobbyPage> {
                           child: Text(
                             widget.isHost
                                 ? 'Start Game'
-                                : (_isReady ? 'Ready!' : 'Ready Up'),
+                                : (_playerStatus == PlayerStatus.ready ? 'Ready!' : 'Ready Up'),
                           ),
                         );
                       },

@@ -131,4 +131,9 @@ class Room {
       timerLastUpdated: timerLastUpdated ?? this.timerLastUpdated,
     );
   }
+
+  // Debug method to print room information
+  void debugPrint() {
+    print('Room{id: $id, roomCode: $roomCode, status: $status, location: $location, spyId: $spyId, roundStartTime: $roundStartTime, gameSession: $gameSession, createdAt: $createdAt, createdBy: $createdBy, settings: ${settings.toJson()}, isTimerPaused: $isTimerPaused, timerLastUpdated: $timerLastUpdated}');
+  }
 }
