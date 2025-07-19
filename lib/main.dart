@@ -7,6 +7,7 @@ import 'constants/constants.dart';
 import 'firebase_options.dart';
 import 'models/room.dart';
 import 'pages/lobby_page.dart';
+import 'pages/how_to_play_page.dart';
 import 'services/app_lifecycle_service.dart';
 import 'services/room_service.dart';
 import 'services/user_service.dart';
@@ -109,12 +110,32 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Spacer(),
+        child: Stack(
+          children: [
+            // Help button in top right
+            Positioned(
+              top: 16,
+              right: 16,
+              child: IconButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const HowToPlayPage(),
+                    ),
+                  );
+                },
+                icon: const Icon(LucideIcons.helpCircle),
+                iconSize: 32,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            // Main content
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Spacer(),
               // Logo Icon
               Icon(
                 LucideIcons.venetianMask,
@@ -196,9 +217,11 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                 ],
               ),
-              const Spacer(),
-            ],
-          ),
+                  const Spacer(),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
