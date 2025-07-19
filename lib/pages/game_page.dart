@@ -42,6 +42,11 @@ class _GamePageState extends State<GamePage> {
   bool _isHost = false;
   bool _showHostLeftDialog = false;
 
+  // Add stream subscription variables
+  StreamSubscription<Player?>? _playerSubscription;
+  StreamSubscription<Room?>? _roomSubscription;
+  StreamSubscription<Room?>? _hostStatusSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -54,32 +59,49 @@ class _GamePageState extends State<GamePage> {
 
   @override
   void dispose() {
+    // Cancel all stream subscriptions
+    _playerSubscription?.cancel();
+    _roomSubscription?.cancel();
+    _hostStatusSubscription?.cancel();
+
+    // Cancel timer
     _gameTimer?.cancel();
+
     // Clear lifecycle service when leaving game
     AppLifecycleService().clearCurrentPlayer();
     super.dispose();
   }
 
   void _watchPlayerData() {
-    PlayerService.watchPlayerById(widget.playerId).listen((playerData) {
-      if (playerData != null) {
-        setState(() {
-          player = playerData;
-          _isHost = playerData.isHost;
-        });
-        
-        // Update lifecycle service with current player info
-        AppLifecycleService().setCurrentPlayer(
-          playerId: widget.playerId,
-          roomCode: widget.roomCode,
-          isHost: playerData.isHost,
-        );
-      }
-    });
+    _playerSubscription = PlayerService.watchPlayerById(widget.playerId).listen(
+      (playerData) {
+        // Check if widget is still mounted before calling setState
+        if (!mounted) return;
+
+        if (playerData != null) {
+          setState(() {
+            player = playerData;
+            _isHost = playerData.isHost;
+          });
+
+          // Update lifecycle service with current player info
+          AppLifecycleService().setCurrentPlayer(
+            playerId: widget.playerId,
+            roomCode: widget.roomCode,
+            isHost: playerData.isHost,
+          );
+        }
+      },
+    );
   }
 
   void _watchRoomChanges() {
-    RoomService.watchRoom(widget.roomCode).listen((roomData) {
+    _roomSubscription = RoomService.watchRoom(widget.roomCode).listen((
+      roomData,
+    ) {
+      // Check if widget is still mounted before calling setState
+      if (!mounted) return;
+
       if (roomData != null) {
         setState(() {
           room = roomData;
@@ -94,10 +116,14 @@ class _GamePageState extends State<GamePage> {
   }
 
   void _watchHostStatus() {
-    RoomService.watchRoom(widget.roomCode).listen((roomData) {
+    _hostStatusSubscription = RoomService.watchRoom(widget.roomCode).listen((
+      roomData,
+    ) {
+      // Check if widget is still mounted before showing dialog
+      if (!mounted) return;
+
       if (roomData != null &&
           roomData.status == RoomStatus.closed &&
-          mounted &&
           !_isHost &&
           !_showHostLeftDialog) {
         _showHostLeftDialog = true;
@@ -107,12 +133,20 @@ class _GamePageState extends State<GamePage> {
   }
 
   void _initializeTimer(Room roomData) {
+    if (!mounted) return;
+
     setState(() {
       _remainingTime = roomData.settings.discussionTime;
       _isTimerPaused = roomData.settings.startTimerOnGameStart ? false : true;
     });
 
     _gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      // Check if widget is still mounted before calling setState
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
       if (!_isTimerPaused && _remainingTime > 0) {
         setState(() {
           _remainingTime--;
@@ -136,9 +170,11 @@ class _GamePageState extends State<GamePage> {
       final yamlData = loadYaml(locationsYaml);
       final List<dynamic> locations = yamlData['locations'];
 
-      setState(() {
-        _locations = locations.map((loc) => loc['name'] as String).toList();
-      });
+      if (mounted) {
+        setState(() {
+          _locations = locations.map((loc) => loc['name'] as String).toList();
+        });
+      }
     } catch (e) {
       // Handle error silently - locations will remain empty
     }
@@ -150,19 +186,21 @@ class _GamePageState extends State<GamePage> {
       final yamlData = loadYaml(questionsYaml);
       final List<dynamic> questions = yamlData['questions'];
 
-      setState(() {
-        _questions = questions.map((q) => q as String).toList();
-        _currentQuestion = _questions.isNotEmpty
-            ? _questions[Random().nextInt(_questions.length)]
-            : '';
-      });
+      if (mounted) {
+        setState(() {
+          _questions = questions.map((q) => q as String).toList();
+          _currentQuestion = _questions.isNotEmpty
+              ? _questions[Random().nextInt(_questions.length)]
+              : '';
+        });
+      }
     } catch (e) {
       // Handle error silently - questions will remain empty
     }
   }
 
   void _refreshQuestion() {
-    if (_questions.isNotEmpty) {
+    if (_questions.isNotEmpty && mounted) {
       setState(() {
         _currentQuestion = _questions[Random().nextInt(_questions.length)];
       });
@@ -170,6 +208,8 @@ class _GamePageState extends State<GamePage> {
   }
 
   void _togglePlayerMark(String playerId) {
+    if (!mounted) return;
+
     setState(() {
       final currentMark = _playerMarks[playerId] ?? PlayerMark.none;
       switch (currentMark) {
@@ -198,6 +238,8 @@ class _GamePageState extends State<GamePage> {
   }
 
   void _showTimeUpDialog() {
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -215,7 +257,7 @@ class _GamePageState extends State<GamePage> {
   }
 
   void _showRoleDialog() {
-    if (player == null) return;
+    if (player == null || !mounted) return;
     final isSpy = player!.isSpy;
 
     player?.debugPrint();
@@ -272,8 +314,9 @@ class _GamePageState extends State<GamePage> {
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
-
   void _leaveGame() {
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -323,6 +366,8 @@ class _GamePageState extends State<GamePage> {
   }
 
   void _showHostLeftGameDialog() {
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -557,13 +602,15 @@ class _GamePageState extends State<GamePage> {
               isCurrentLocation: isCurrentLocation,
               isCrossedOut: isCrossedOut,
               onTap: () {
-                setState(() {
-                  if (isCrossedOut) {
-                    _crossedOutLocations.remove(location);
-                  } else {
-                    _crossedOutLocations.add(location);
-                  }
-                });
+                if (mounted) {
+                  setState(() {
+                    if (isCrossedOut) {
+                      _crossedOutLocations.remove(location);
+                    } else {
+                      _crossedOutLocations.add(location);
+                    }
+                  });
+                }
               },
             );
           },
