@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:spyfall/widgets/sticky_note.dart';
 import 'package:yaml/yaml.dart';
 
 import '../main.dart';
@@ -344,25 +345,107 @@ class _GamePageState extends State<GamePage> {
                 );
               }
 
-              if (context.mounted) {
-                Navigator.of(context).pop();
-                Navigator.of(context, rootNavigator: true).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => LobbyPage(
-                      roomCode: widget.roomCode,
-                      isHost: _isHost, // Keep host status
-                      userId: widget.playerId,
-                      name: player?.name ?? 'Player',
+              _showGameResultsDialog(() async {
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                  Navigator.of(context, rootNavigator: true).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => LobbyPage(
+                        roomCode: widget.roomCode,
+                        isHost: _isHost, // Keep host status
+                        userId: widget.playerId,
+                        name: player?.name ?? 'Player',
+                      ),
                     ),
-                  ),
-                );
-              }
+                  );
+                }
+              });
             },
             child: const Text('Leave'),
           ),
         ],
       ),
     );
+  }
+
+  void _showGameResultsDialog(Future<void> Function() onContinue) async {
+    if (!mounted || room?.location == null) {
+      await onContinue();
+      return;
+    }
+
+    try {
+      final players = await PlayerService.getPlayersInGame(widget.roomCode);
+      final spy = players.firstWhere(
+        (player) => player.isSpy,
+        orElse: () => Player(
+          id: '',
+          name: 'Unknown',
+          gameId: widget.roomCode,
+          isSpy: false,
+          isHost: false,
+          status: PlayerStatus.notReady,
+          joinedAt: Timestamp.now(),
+        ),
+      );
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Game Results'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(LucideIcons.mapPin, size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Location: ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Expanded(child: Text(room!.location!)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(LucideIcons.userX, size: 20, color: Colors.red),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Spy: ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Expanded(
+                      child: Text(
+                        spy.name.isNotEmpty ? spy.name : 'Unknown',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await onContinue();
+                },
+                child: const Text('Continue'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      await onContinue();
+    }
   }
 
   void _showHostLeftGameDialog() {
@@ -581,40 +664,56 @@ class _GamePageState extends State<GamePage> {
           ),
         ),
         const SizedBox(height: 8),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 16 / 9,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: _locations.length,
-          itemBuilder: (context, index) {
-            final location = _locations[index];
-            final isCurrentLocation =
-                location == room?.location && !(player?.isSpy ?? false);
-            final isCrossedOut = _crossedOutLocations.contains(location);
+        _buildTwoColumnLayout(),
+      ],
+    );
+  }
 
-            return LocationCard(
-              location: location,
-              isCurrentLocation: isCurrentLocation,
-              isCrossedOut: isCrossedOut,
-              onTap: () {
-                if (mounted) {
-                  setState(() {
-                    if (isCrossedOut) {
-                      _crossedOutLocations.remove(location);
-                    } else {
-                      _crossedOutLocations.add(location);
-                    }
-                  });
+  Widget _buildTwoColumnLayout() {
+    // Split locations into two lists for the columns
+    final leftColumnItems = <Widget>[];
+    final rightColumnItems = <Widget>[];
+
+    for (int i = 0; i < _locations.length; i++) {
+      final location = _locations[i];
+      final isCurrentLocation =
+          location == room?.location && !(player?.isSpy ?? false);
+      final isCrossedOut = _crossedOutLocations.contains(location);
+
+      final card = Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: LocationCard(
+          location: location,
+          isCurrentLocation: isCurrentLocation,
+          isCrossedOut: isCrossedOut,
+          onTap: () {
+            if (mounted) {
+              setState(() {
+                if (isCrossedOut) {
+                  _crossedOutLocations.remove(location);
+                } else {
+                  _crossedOutLocations.add(location);
                 }
-              },
-            );
+              });
+            }
           },
         ),
+      );
+
+      // Alternate between left and right columns
+      if (i % 2 == 0) {
+        leftColumnItems.add(card);
+      } else {
+        rightColumnItems.add(card);
+      }
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: Column(children: leftColumnItems)),
+        const SizedBox(width: 8),
+        Expanded(child: Column(children: rightColumnItems)),
       ],
     );
   }
@@ -625,46 +724,26 @@ class _GamePageState extends State<GamePage> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
-          'Sample Questions',
+          'Sample Question',
           style: Theme.of(
             context,
           ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 8),
-        Card(
-          color: Color(0xFFf9e2af),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Text(
-                  _currentQuestion,
-                  style: GoogleFonts.getFont(
-                    "Permanent Marker",
-                    textStyle: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: _refreshQuestion,
-                  icon: const Icon(LucideIcons.refreshCw),
-                  label: const Text('New Question'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFFdf8e1d),
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 24,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    textStyle: const TextStyle(fontSize: 16),
-                  ),
-                ),
-              ],
+        const SizedBox(height: 32),
+        StickyNote(text: _currentQuestion),
+        const SizedBox(height: 32),
+        ElevatedButton.icon(
+          onPressed: _refreshQuestion,
+          icon: const Icon(LucideIcons.refreshCw),
+          label: const Text('New Question'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Color(0xFFdf8e1d),
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
+            textStyle: const TextStyle(fontSize: 16),
           ),
         ),
       ],

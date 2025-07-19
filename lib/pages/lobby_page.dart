@@ -34,7 +34,6 @@ class _LobbyPageState extends State<LobbyPage> {
   final _formKey = GlobalKey<FormState>();
 
   int _timerLength = AppConstants.defaultSettings["discussionTime"] as int;
-  int _votingTimeLength = AppConstants.defaultSettings["votingTime"] as int;
   bool _startTimerImmediately =
       AppConstants.defaultSettings["startTimerOnGameStart"] as bool;
 
@@ -48,7 +47,7 @@ class _LobbyPageState extends State<LobbyPage> {
     _initializePlayer();
     _initializeRoomSettings();
     _watchRoomStatus();
-    
+
     // Set current player info in lifecycle service
     AppLifecycleService().setCurrentPlayer(
       playerId: widget.userId,
@@ -96,7 +95,6 @@ class _LobbyPageState extends State<LobbyPage> {
       if (room != null && mounted) {
         setState(() {
           _timerLength = room.settings.discussionTime;
-          _votingTimeLength = room.settings.votingTime;
           _startTimerImmediately = room.settings.startTimerOnGameStart;
         });
       }
@@ -137,7 +135,7 @@ class _LobbyPageState extends State<LobbyPage> {
       // If player is somehow in game but can press toggle, do nothing
       return;
     }
-    
+
     await PlayerService.updatePlayerStatus(widget.userId, newStatus);
     setState(() {
       _playerStatus = newStatus;
@@ -215,7 +213,6 @@ class _LobbyPageState extends State<LobbyPage> {
     try {
       final settings = RoomSettings(
         discussionTime: _timerLength,
-        votingTime: _votingTimeLength,
         startTimerOnGameStart: _startTimerImmediately,
       );
 
@@ -406,7 +403,9 @@ class _LobbyPageState extends State<LobbyPage> {
                         final players = snapshot.data ?? [];
                         final allReady =
                             players.isNotEmpty &&
-                            players.every((p) => p.status == PlayerStatus.ready);
+                            players.every(
+                              (p) => p.status == PlayerStatus.ready,
+                            );
 
                         return ElevatedButton(
                           onPressed: widget.isHost
@@ -444,7 +443,9 @@ class _LobbyPageState extends State<LobbyPage> {
                           child: Text(
                             widget.isHost
                                 ? 'Start Game'
-                                : (_playerStatus == PlayerStatus.ready ? 'Ready!' : 'Ready Up'),
+                                : (_playerStatus == PlayerStatus.ready
+                                      ? 'Ready!'
+                                      : 'Ready Up'),
                           ),
                         );
                       },
@@ -549,30 +550,6 @@ class _LobbyPageState extends State<LobbyPage> {
                 onChanged: (value) async {
                   setState(() {
                     _timerLength = value!;
-                  });
-                  await _updateSettings();
-                },
-              ),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Voting Time:',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              DropdownButton<int>(
-                value: _votingTimeLength,
-                items: const [
-                  DropdownMenuItem(value: 30, child: Text('30 seconds')),
-                  DropdownMenuItem(value: 60, child: Text('1 minute')),
-                  DropdownMenuItem(value: 90, child: Text('1.5 minutes')),
-                  DropdownMenuItem(value: 120, child: Text('2 minutes')),
-                ],
-                onChanged: (value) async {
-                  setState(() {
-                    _votingTimeLength = value!;
                   });
                   await _updateSettings();
                 },

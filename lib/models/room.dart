@@ -5,19 +5,16 @@ enum RoomStatus { setup, waiting, inProgress, completed, closed }
 
 class RoomSettings {
   final int discussionTime;
-  final int votingTime;
   final bool startTimerOnGameStart;
 
   RoomSettings({
     required this.discussionTime,
-    required this.votingTime,
     required this.startTimerOnGameStart,
   });
 
   Map<String, dynamic> toJson() {
     return {
       'discussionTime': discussionTime,
-      'votingTime': votingTime,
       'startTimerOnGameStart': startTimerOnGameStart,
     };
   }
@@ -27,8 +24,6 @@ class RoomSettings {
       discussionTime:
           json['discussionTime'] ??
           AppConstants.defaultSettings["discussionTime"],
-      votingTime:
-          json['votingTime'] ?? AppConstants.defaultSettings["votingTime"],
       startTimerOnGameStart:
           json['startTimerOnGameStart'] ??
           AppConstants.defaultSettings["startTimerOnGameStart"],
@@ -134,6 +129,8 @@ class Room {
 
   // Debug method to print room information
   void debugPrint() {
-    print('Room{id: $id, roomCode: $roomCode, status: $status, location: $location, spyId: $spyId, roundStartTime: $roundStartTime, gameSession: $gameSession, createdAt: $createdAt, createdBy: $createdBy, settings: ${settings.toJson()}, isTimerPaused: $isTimerPaused, timerLastUpdated: $timerLastUpdated}');
+    print(
+      'Room{id: $id, roomCode: $roomCode, status: $status, location: $location, spyId: $spyId, roundStartTime: $roundStartTime, gameSession: $gameSession, createdAt: $createdAt, createdBy: $createdBy, settings: ${settings.toJson()}, isTimerPaused: $isTimerPaused, timerLastUpdated: $timerLastUpdated}',
+    );
   }
 }
