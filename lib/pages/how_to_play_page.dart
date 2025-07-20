@@ -19,7 +19,7 @@ class _HowToPlayPageState extends State<HowToPlayPage> {
   final Set<String> _demoCrossedOutLocations = {};
 
   // Sample data for demos
-  final List<String> _demoPlayers = ['Alice', 'Bob', 'Charlie', 'Diana'];
+  final List<String> _demoPlayers = ['Alice', 'Bob'];
   final List<String> _demoLocations = ['School', 'Hospital'];
   final String _demoQuestion = 'What time do you usually arrive here?';
 

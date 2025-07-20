@@ -71,11 +71,11 @@ class _LocationCardState extends State<LocationCard> {
               padding: EdgeInsets.only(top: 12, left: 12, right: 12, bottom: 6),
               child: Column(
                 children: [
-                  Stack(
-                    children: [
+                  Builder(
+                    builder: (context) {
                       // Background image
-                      if (_imagePath != null && !_isLoading)
-                        AspectRatio(
+                      if (!_isLoading) {
+                        return AspectRatio(
                           aspectRatio: 1,
                           child: Image.asset(
                             _imagePath!,
@@ -91,25 +91,21 @@ class _LocationCardState extends State<LocationCard> {
                               );
                             },
                           ),
-                        ),
-
-                      // Loading indicator
-                      if (_isLoading)
-                        Positioned.fill(
-                          child: Container(
-                            color: Colors.grey[200],
-                            child: const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
+                        );
+                        // Loading indicator
+                      } else {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           ),
-                        ),
-                    ],
+                        );
+                      }
+                    },
                   ),
                   // Content
                   const SizedBox(height: 6),
