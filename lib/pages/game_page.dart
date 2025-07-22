@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:spyfall/widgets/big_red_button.dart';
+import 'package:spyfall/widgets/role_dialog.dart';
 import 'package:spyfall/widgets/sticky_note.dart';
 import 'package:yaml/yaml.dart';
 
@@ -234,7 +236,7 @@ class _GamePageState extends State<GamePage> {
       case PlayerMark.cleared:
         return Colors.green;
       case PlayerMark.none:
-        return Colors.transparent;
+        return Theme.of(context).colorScheme.surface;
     }
   }
 
@@ -259,52 +261,15 @@ class _GamePageState extends State<GamePage> {
 
   void _showRoleDialog() {
     if (player == null || !mounted) return;
-    final isSpy = player!.isSpy;
 
     player?.debugPrint();
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: isSpy ? Colors.red[50] : null,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSpy ? LucideIcons.userX : LucideIcons.userCheck,
-              size: 64,
-              color: isSpy ? Theme.of(context).colorScheme.error : Colors.green,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              isSpy ? 'Role: Spy' : 'Role: ${player!.role ?? 'Unknown'}',
-              style: TextStyle(
-                color: isSpy
-                    ? Theme.of(context).colorScheme.error
-                    : Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.bold,
-                fontSize: 28,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              isSpy
-                  ? 'Location: ???'
-                  : 'Location: ${room?.location ?? 'Unknown'}',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
+      builder: (context) => RoleDialog(
+        isSpy: player!.isSpy,
+        role: player!.role,
+        location: room?.location,
       ),
     );
   }
@@ -496,7 +461,14 @@ class _GamePageState extends State<GamePage> {
               ),
             );
           },
-          child: Text('Room: ${widget.roomCode}'),
+          child: Text(
+            'Room: ${widget.roomCode}',
+            style: TextStyle(
+              fontSize: 24,
+              height: 1.125,
+              fontFamily: "Geist Mono",
+            ),
+          ),
         ),
         backgroundColor: Colors.transparent,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
@@ -514,37 +486,46 @@ class _GamePageState extends State<GamePage> {
           child: Column(
             children: [
               // Timer Card
-              Row(
-                children: [
-                  Expanded(
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(LucideIcons.clock),
-                            const SizedBox(width: 8),
-                            Text(
-                              _formatTime(_remainingTime),
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ],
+              Container(
+                padding: EdgeInsets.all(8.0),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.all(Radius.circular(16)),
+                  color: const Color(0xFFAAAAAA),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min, // Add this
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                        gradient: RadialGradient(
+                          colors: [Color(0xFF450A08), Colors.black],
+                        ),
+                      ),
+                      child: Text(
+                        _formatTime(_remainingTime),
+                        style: TextStyle(
+                          fontSize: 45,
+                          height: 1.125,
+                          fontFamily: "7 Segment",
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                  ),
-                  if (_isHost)
-                    Card(
-                      child: IconButton(
+                    if (_isHost) SizedBox(width: 8),
+                    if (_isHost)
+                      BigRedButton(
                         onPressed: _toggleTimer,
-                        icon: Icon(
-                          _isTimerPaused ? LucideIcons.play : LucideIcons.pause,
-                        ),
+                        icon: _isTimerPaused
+                            ? LucideIcons.play
+                            : LucideIcons.pause,
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
 
               // Role Button
@@ -589,9 +570,11 @@ class _GamePageState extends State<GamePage> {
         Center(
           child: Text(
             'Players',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 28,
+              height: 1.3,
+              fontFamily: 'Limelight',
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -658,9 +641,11 @@ class _GamePageState extends State<GamePage> {
         Center(
           child: Text(
             'Locations',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 28,
+              height: 1.3,
+              fontFamily: 'Limelight',
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -725,9 +710,7 @@ class _GamePageState extends State<GamePage> {
       children: [
         Text(
           'Sample Question',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 28, height: 1.3, fontFamily: 'Limelight'),
         ),
         const SizedBox(height: 32),
         StickyNote(text: _currentQuestion),

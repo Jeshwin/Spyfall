@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../constants/constants.dart';
@@ -324,16 +323,11 @@ class _LobbyPageState extends State<LobbyPage> {
                             },
                             child: Text(
                               widget.roomCode,
-                              style: GoogleFonts.getFont(
-                                'Space Mono',
-                                textStyle: Theme.of(context)
-                                    .textTheme
-                                    .displayLarge
-                                    ?.copyWith(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                    ),
+                              style: TextStyle(
+                                fontSize: 57,
+                                height: 1.125,
+                                fontFamily: "Geist Mono",
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                             ),
                           ),
@@ -530,7 +524,14 @@ class _LobbyPageState extends State<LobbyPage> {
     return [
       Column(
         children: [
-          Text('Settings', style: Theme.of(context).textTheme.headlineMedium),
+          Text(
+            'Settings',
+            style: TextStyle(
+              fontSize: 28,
+              height: 1.3,
+              fontFamily: 'Limelight',
+            ),
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

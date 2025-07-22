@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class StickyNote extends StatelessWidget {
   final String text;
@@ -12,14 +11,12 @@ class StickyNote extends StatelessWidget {
   static const Color _noteColor = Color(0xFFFFFAC2); // Light yellow
   static const Color _shadowColor = Color(0xFF8C8A73); // Darker shadow color
   static const double _rotation = 10; // degrees
-  static final TextStyle _textStyle = GoogleFonts.getFont(
-    'Delicious Handrawn',
-    textStyle: TextStyle(
-      fontSize: 24,
-      color: Colors.black87,
-      fontWeight: FontWeight.w500,
-      height: 1.3,
-    ),
+  static final TextStyle _textStyle = TextStyle(
+    fontFamily: "Delicious Handrawn",
+    fontSize: 24,
+    color: Colors.black87,
+    fontWeight: FontWeight.w500,
+    height: 1.3,
   );
 
   const StickyNote({super.key, required this.text});

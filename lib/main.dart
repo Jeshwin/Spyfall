@@ -6,8 +6,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'constants/constants.dart';
 import 'firebase_options.dart';
 import 'models/room.dart';
-import 'pages/lobby_page.dart';
 import 'pages/how_to_play_page.dart';
+import 'pages/lobby_page.dart';
 import 'services/app_lifecycle_service.dart';
 import 'services/room_service.dart';
 import 'services/user_service.dart';
@@ -15,10 +15,10 @@ import 'services/user_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  
+
   // Initialize app lifecycle service
   AppLifecycleService().initialize();
-  
+
   runApp(const MyApp());
 }
 
@@ -33,7 +33,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: AppConstants.colorScheme,
         useMaterial3: true,
-        textTheme: GoogleFonts.interTextTheme(),
+        textTheme: GoogleFonts.nunitoSansTextTheme(),
       ),
       home: const MyHomePage(title: 'Spyfall'),
     );
@@ -136,87 +136,95 @@ class _MyHomePageState extends State<MyHomePage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Spacer(),
-              // Logo Icon
-              Icon(
-                LucideIcons.venetianMask,
-                size: 120,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              // App Title
-              Text(
-                'Spyfall',
-                style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Developer Credit
-              Text(
-                'developed by Jeshwin Prince',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
-              SizedBox(height: 16),
-              // Navigation Buttons
-              Row(
-                spacing: 16,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _isCreatingRoom ? null : _createRoom,
-                      icon: _isCreatingRoom
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(LucideIcons.plus),
-                      label: Text(
-                        _isCreatingRoom ? 'Creating...' : 'Create Room',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                          horizontal: 24,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(16)),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                  // Logo Icon
+                  Icon(
+                    LucideIcons.venetianMask,
+                    size: 120,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  // App Title
+                  Text(
+                    'Spyfall',
+                    style: TextStyle(
+                      fontSize: 57,
+                      height: 1.125,
+                      fontFamily: "Limelight",
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  // Developer Credit
+                  Text(
+                    'developed by Jeshwin Prince',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  // Navigation Buttons
+                  Row(
+                    spacing: 16,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _isCreatingRoom ? null : _createRoom,
+                          icon: _isCreatingRoom
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(LucideIcons.plus),
+                          label: Text(
+                            _isCreatingRoom ? 'Creating...' : 'Create Room',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                              horizontal: 24,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(16),
+                              ),
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
 
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      onPressed: _joinExistingGame,
-                      icon: const Icon(LucideIcons.logIn),
-                      label: const Text('Join Game'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                          horizontal: 24,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(16)),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: FilledButton.tonalIcon(
+                          onPressed: _joinExistingGame,
+                          icon: const Icon(LucideIcons.logIn),
+                          label: const Text('Join Game'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                              horizontal: 24,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(16),
+                              ),
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
                   const Spacer(),
                 ],
               ),
@@ -333,6 +341,7 @@ class _JoinGameDialogState extends State<_JoinGameDialog> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _gameCodeController,
+              textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(
                 labelText: 'Game Code',
                 hintText: 'Enter game code',

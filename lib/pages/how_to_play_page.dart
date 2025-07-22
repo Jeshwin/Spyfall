@@ -70,7 +70,7 @@ class _HowToPlayPageState extends State<HowToPlayPage> {
               title: 'Game Overview',
               content: [
                 _buildParagraph(
-                  'Spyfall is a social deduction game where everyone receives a location card except one person - the spy. The spy doesn\'t know the location and must figure it out through asking and answering questions.',
+                  "Spyfall is a social deduction game where everyone receives a location card except one person - the spy. The spy doesn't know the location and must figure it out through asking and answering questions.",
                 ),
                 _buildParagraph(
                   'Players take turns asking each other questions about the location. The spy tries to blend in while gathering clues, and other players try to identify the spy without being too obvious about the location.',

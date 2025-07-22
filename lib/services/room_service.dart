@@ -13,7 +13,7 @@ class RoomService {
   static const String _roomsCollection = 'rooms';
 
   static String _generateRoomCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random();
     return String.fromCharCodes(
       Iterable.generate(
@@ -109,23 +109,25 @@ class RoomService {
     }
   }
 
-  static Future<void> updateRoomSettings(String roomCode, RoomSettings settings) async {
+  static Future<void> updateRoomSettings(
+    String roomCode,
+    RoomSettings settings,
+  ) async {
     try {
-      await _firestore
-          .collection(_roomsCollection)
-          .doc(roomCode)
-          .update({'settings': settings.toJson()});
+      await _firestore.collection(_roomsCollection).doc(roomCode).update({
+        'settings': settings.toJson(),
+      });
     } catch (e) {
       throw Exception('Failed to update room settings: $e');
     }
   }
 
-  static Future<void> updateTimerState(String roomCode, bool isTimerPaused) async {
+  static Future<void> updateTimerState(
+    String roomCode,
+    bool isTimerPaused,
+  ) async {
     try {
-      await _firestore
-          .collection(_roomsCollection)
-          .doc(roomCode)
-          .update({
+      await _firestore.collection(_roomsCollection).doc(roomCode).update({
         'isTimerPaused': isTimerPaused,
         'timerLastUpdated': Timestamp.now(),
       });

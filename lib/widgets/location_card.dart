@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/image_service.dart';
 import 'cross_painter.dart';
@@ -111,9 +110,10 @@ class _LocationCardState extends State<LocationCard> {
                   const SizedBox(height: 6),
                   Text(
                     widget.location,
-                    style: GoogleFonts.getFont(
-                      'Delicious Handrawn',
-                      textStyle: TextStyle(fontSize: 16, height: 1.3),
+                    style: TextStyle(
+                      fontFamily: "Delicious Handrawn",
+                      fontSize: 16,
+                      height: 1.3,
                     ),
                     textAlign: TextAlign.center,
                     overflow: TextOverflow.ellipsis,
