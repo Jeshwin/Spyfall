@@ -28,7 +28,7 @@ class BigRedButton extends StatelessWidget {
         .withLightness((hslColor.lightness * 0.6).clamp(0.0, 1.0))
         .toColor();
 
-    return Container(
+    return SizedBox(
       width: baseRadius * 2,
       height: baseRadius * 2 + shadowOffset,
       child: Stack(

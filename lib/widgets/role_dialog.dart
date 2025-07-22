@@ -1,17 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:spyfall/services/image_service.dart';
 
-class RoleDialog extends StatelessWidget {
+class RoleDialog extends StatefulWidget {
   final bool isSpy;
   final String? role;
   final String? location;
-  final String _imagePath = 'assets/images/spy.jpg';
 
   const RoleDialog({
     super.key,
     required this.isSpy,
     this.role = 'Spy',
-    this.location = '???',
+    this.location,
   });
+
+  @override
+  State<RoleDialog> createState() => _RoleDialogState();
+}
+
+class _RoleDialogState extends State<RoleDialog> {
+  String? _imagePath = 'assets/images/spy.jpg';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  Future<void> _loadImage() async {
+    try {
+      final path = await ImageService.getLocationImagePath(
+        widget.location ?? 'spy',
+      );
+      if (mounted) {
+        setState(() {
+          _imagePath = path;
+        });
+      }
+    } catch (e) {
+      //! ERROR
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +49,7 @@ class RoleDialog extends StatelessWidget {
         child: Container(
           width: 300,
           decoration: BoxDecoration(
-            color: isSpy ? Colors.red[50] : Color(0xFFFFFFFF),
+            color: widget.isSpy ? Colors.red[50] : Color(0xFFFFFFFF),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withAlpha(25),
@@ -38,7 +66,7 @@ class RoleDialog extends StatelessWidget {
                 AspectRatio(
                   aspectRatio: 1,
                   child: Image.asset(
-                    _imagePath,
+                    _imagePath!,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
@@ -55,7 +83,7 @@ class RoleDialog extends StatelessWidget {
                 // Content
                 const SizedBox(height: 10),
                 Text(
-                  "Location: ${isSpy ? '???' : location ?? ''}",
+                  "Location: ${widget.isSpy ? '???' : widget.location ?? ''}",
                   style: TextStyle(
                     fontFamily: "Delicious Handrawn",
                     fontSize: 24,
@@ -67,7 +95,7 @@ class RoleDialog extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  "Role: ${isSpy ? 'Spy' : role ?? ''}",
+                  "Role: ${widget.isSpy ? 'Spy' : widget.role ?? ''}",
                   style: TextStyle(
                     fontFamily: "Delicious Handrawn",
                     fontSize: 24,
