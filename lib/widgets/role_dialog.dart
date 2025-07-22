@@ -29,7 +29,7 @@ class _RoleDialogState extends State<RoleDialog> {
   Future<void> _loadImage() async {
     try {
       final path = await ImageService.getLocationImagePath(
-        widget.location ?? 'spy',
+        !widget.isSpy ? (widget.location ?? 'spy') : 'spy',
       );
       if (mounted) {
         setState(() {

@@ -310,6 +310,22 @@ class _GamePageState extends State<GamePage> {
                 );
               }
 
+              // Update room status if no players are in game
+              List<Player> players = await PlayerService.getPlayersInGame(
+                widget.roomCode,
+              );
+              bool hasPlayersInGame = players.any(
+                (player) => player.status == PlayerStatus.inGame,
+              );
+
+              if (!hasPlayersInGame) {
+                final room = await RoomService.getRoomByCode(widget.roomCode);
+                if (room != null) {
+                  await RoomService.updateRoom(
+                    room.copyWith(status: RoomStatus.setup),
+                  );
+                }
+              }
               _showGameResultsDialog(() async {
                 if (context.mounted) {
                   Navigator.of(context).pop();
