@@ -377,13 +377,11 @@ class _LobbyPageState extends State<LobbyPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.error,
                         foregroundColor: Theme.of(context).colorScheme.onError,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                          horizontal: 24,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
                         shape: const RoundedRectangleBorder(
                           borderRadius: BorderRadius.all(Radius.circular(16)),
                         ),
+                        fixedSize: Size.fromHeight(48),
                         textStyle: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -420,10 +418,8 @@ class _LobbyPageState extends State<LobbyPage> {
                                       : Theme.of(
                                           context,
                                         ).colorScheme.onPrimary),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                              horizontal: 24,
-                            ),
+                            fixedSize: Size.fromHeight(48),
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
                             shape: const RoundedRectangleBorder(
                               borderRadius: BorderRadius.all(
                                 Radius.circular(16),

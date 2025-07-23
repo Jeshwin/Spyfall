@@ -631,6 +631,7 @@ class _GamePageState extends State<GamePage> {
                         child: Text(
                           player.name,
                           style: TextStyle(
+                            height: 1.5,
                             color: mark == PlayerMark.none
                                 ? Theme.of(context).colorScheme.onSurface
                                 : Colors.white,

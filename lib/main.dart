@@ -29,6 +29,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Spyfall',
       theme: ThemeData(
         colorScheme: AppConstants.colorScheme,
@@ -115,7 +116,7 @@ class _MyHomePageState extends State<MyHomePage> {
             // Help button in top right
             Positioned(
               top: 16,
-              right: 16,
+              right: 24,
               child: IconButton(
                 onPressed: () {
                   Navigator.of(context).push(
@@ -129,10 +130,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
-            // Main content
-            Padding(
-              padding: const EdgeInsets.all(24.0),
+            Center(
               child: Column(
+                spacing: 16,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Spacer(),
@@ -152,7 +152,6 @@ class _MyHomePageState extends State<MyHomePage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 8),
                   // Developer Credit
                   Text(
                     'developed by Jeshwin Prince',
@@ -162,68 +161,46 @@ class _MyHomePageState extends State<MyHomePage> {
                       ).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
-                  SizedBox(height: 16),
                   // Navigation Buttons
-                  Row(
-                    spacing: 16,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _isCreatingRoom ? null : _createRoom,
-                          icon: _isCreatingRoom
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(LucideIcons.plus),
-                          label: Text(
-                            _isCreatingRoom ? 'Creating...' : 'Create Room',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                              horizontal: 24,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(16),
-                              ),
-                            ),
-                            textStyle: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
+                  FilledButton.icon(
+                    onPressed: _isCreatingRoom ? null : _createRoom,
+                    icon: _isCreatingRoom
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(LucideIcons.plus),
+                    label: Text(
+                      _isCreatingRoom ? 'Creating...' : 'Create Room',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      fixedSize: Size(192, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(16)),
                       ),
-
-                      Expanded(
-                        child: FilledButton.tonalIcon(
-                          onPressed: _joinExistingGame,
-                          icon: const Icon(LucideIcons.logIn),
-                          label: const Text('Join Game'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                              horizontal: 24,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(16),
-                              ),
-                            ),
-                            textStyle: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
-                    ],
+                    ),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _joinExistingGame,
+                    icon: const Icon(LucideIcons.logIn),
+                    label: const Text('Join Game'),
+                    style: OutlinedButton.styleFrom(
+                      fixedSize: Size(192, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(16)),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                   const Spacer(),
                 ],
