@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -40,11 +43,15 @@ class _LobbyPageState extends State<LobbyPage> {
   bool _showHostLeftDialog = false;
   int? _lastKnownGameSession;
 
+  StreamSubscription<List<Player>>? _playerListSubscription;
+  List<Player>? _playerList;
+
   @override
   void initState() {
     super.initState();
     _initializePlayer();
     _initializeRoomSettings();
+    _initializePlayerList();
     _watchRoomStatus();
 
     // Set current player info in lifecycle service
@@ -58,6 +65,8 @@ class _LobbyPageState extends State<LobbyPage> {
   @override
   void dispose() {
     _playerNameController.dispose();
+    _playerListSubscription?.cancel();
+
     // Clear lifecycle service when leaving lobby
     AppLifecycleService().clearCurrentPlayer();
     super.dispose();
@@ -101,6 +110,18 @@ class _LobbyPageState extends State<LobbyPage> {
       // Use default settings if room can't be loaded
       // No need to show error to user as defaults will work
     }
+  }
+
+  void _initializePlayerList() async {
+    _playerListSubscription = PlayerService.watchPlayersInGame(widget.roomCode)
+        .listen((playerListData) {
+          // Check if widget is still mounted before calling setState
+          if (!mounted) return;
+
+          setState(() {
+            _playerList = playerListData;
+          });
+        });
   }
 
   void _leaveLobby() async {
@@ -183,8 +204,11 @@ class _LobbyPageState extends State<LobbyPage> {
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) =>
-                GamePage(roomCode: widget.roomCode, playerId: widget.userId),
+            builder: (context) => GamePage(
+              roomCode: widget.roomCode,
+              playerId: widget.userId,
+              isHost: widget.isHost,
+            ),
           ),
         );
       }
@@ -252,6 +276,7 @@ class _LobbyPageState extends State<LobbyPage> {
                 builder: (context) => GamePage(
                   roomCode: widget.roomCode,
                   playerId: widget.userId,
+                  isHost: widget.isHost,
                 ),
               ),
             );
@@ -451,68 +476,77 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   Widget _buildPlayersList() {
-    return StreamBuilder<List<Player>>(
-      stream: PlayerService.watchPlayersInGame(widget.roomCode),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Text('Error: ${snapshot.error}');
-        }
+    if (_playerList == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final players = _playerList!;
 
-        final players = snapshot.data!;
+    if (players.isEmpty) {
+      return const Center(child: Text('No players in lobby'));
+    }
 
-        if (players.isEmpty) {
-          return const Center(child: Text('No players in lobby'));
-        }
+    if (kDebugMode) {
+      print('=== Players List Debug Info ===');
+      print('Total players: ${players.length}');
+      for (int i = 0; i < players.length; i++) {
+        final player = players[i];
+        print('Player $i:');
+        print('  - ID: ${player.id}');
+        print('  - Name: ${player.name}');
+        print('  - Status: ${player.status}');
+        print('  - Is Host: ${player.isHost}');
+        print('  - Game ID: ${player.gameId}');
+        print('  - Role: ${player.role}');
+        print('  - Is Spy: ${player.isSpy}');
+        print('  ---');
+      }
+      print('==============================');
+    }
 
-        return SizedBox(
-          height: 200,
-          child: Scrollbar(
-            child: ListView.builder(
-              physics: const BouncingScrollPhysics(),
-              itemCount: players.length,
-              itemBuilder: (context, index) {
-                final player = players[index];
+    return SizedBox(
+      height: 200,
+      child: Scrollbar(
+        child: ListView.builder(
+          physics: const BouncingScrollPhysics(),
+          itemCount: players.length,
+          itemBuilder: (context, index) {
+            final player = players[index];
 
-                if (player.id == widget.userId) {
-                  return SizedBox();
-                }
+            if (player.id == widget.userId) {
+              return SizedBox();
+            }
 
-                return Card.filled(
-                  child: ListTile(
-                    leading: Icon(
-                      player.isHost ? LucideIcons.crown : LucideIcons.user,
-                      color: player.isHost
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurface,
-                    ),
-                    title: Text(player.name),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (player.status == PlayerStatus.ready)
-                          Icon(
-                            LucideIcons.check,
-                            color: Theme.of(context).colorScheme.primary,
-                          )
-                        else if (player.status == PlayerStatus.inGame)
-                          Icon(
-                            LucideIcons.gamepad2,
-                            color: Theme.of(context).colorScheme.secondary,
-                          ),
-                        if (player.isHost) const Text('HOST'),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      },
+            return Card.filled(
+              child: ListTile(
+                leading: Icon(
+                  player.isHost ? LucideIcons.crown : LucideIcons.user,
+                  color: player.isHost
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurface,
+                ),
+                title: Text(player.name),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (player.status == PlayerStatus.ready)
+                      Icon(
+                        LucideIcons.check,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    else if (player.status == PlayerStatus.inGame)
+                      Icon(
+                        LucideIcons.gamepad2,
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    if (player.isHost) const Text('HOST'),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 

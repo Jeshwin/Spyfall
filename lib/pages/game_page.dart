@@ -24,8 +24,14 @@ enum PlayerMark { none, suspicious, cleared }
 class GamePage extends StatefulWidget {
   final String roomCode;
   final String playerId;
+  final bool isHost;
 
-  const GamePage({super.key, required this.roomCode, required this.playerId});
+  const GamePage({
+    super.key,
+    required this.roomCode,
+    required this.playerId,
+    this.isHost = false,
+  });
 
   @override
   State<GamePage> createState() => _GamePageState();
@@ -42,13 +48,11 @@ class _GamePageState extends State<GamePage> {
   List<String> _locations = [];
   List<String> _questions = [];
   String _currentQuestion = '';
-  bool _isHost = false;
   bool _showHostLeftDialog = false;
 
   // Add stream subscription variables
   StreamSubscription<Player?>? _playerSubscription;
   StreamSubscription<Room?>? _roomSubscription;
-  StreamSubscription<Room?>? _hostStatusSubscription;
 
   @override
   void initState() {
@@ -57,7 +61,13 @@ class _GamePageState extends State<GamePage> {
     _loadLocations();
     _loadQuestions();
     _watchRoomChanges();
-    _watchHostStatus();
+
+    // Set current player info in lifecycle service
+    AppLifecycleService().setCurrentPlayer(
+      playerId: widget.playerId,
+      roomCode: widget.roomCode,
+      isHost: widget.isHost,
+    );
   }
 
   @override
@@ -65,7 +75,6 @@ class _GamePageState extends State<GamePage> {
     // Cancel all stream subscriptions
     _playerSubscription?.cancel();
     _roomSubscription?.cancel();
-    _hostStatusSubscription?.cancel();
 
     // Cancel timer
     _gameTimer?.cancel();
@@ -84,15 +93,7 @@ class _GamePageState extends State<GamePage> {
         if (playerData != null) {
           setState(() {
             player = playerData;
-            _isHost = playerData.isHost;
           });
-
-          // Update lifecycle service with current player info
-          AppLifecycleService().setCurrentPlayer(
-            playerId: widget.playerId,
-            roomCode: widget.roomCode,
-            isHost: playerData.isHost,
-          );
         }
       },
     );
@@ -114,23 +115,13 @@ class _GamePageState extends State<GamePage> {
         if (_gameTimer == null) {
           _initializeTimer(roomData);
         }
-      }
-    });
-  }
 
-  void _watchHostStatus() {
-    _hostStatusSubscription = RoomService.watchRoom(widget.roomCode).listen((
-      roomData,
-    ) {
-      // Check if widget is still mounted before showing dialog
-      if (!mounted) return;
-
-      if (roomData != null &&
-          roomData.status == RoomStatus.closed &&
-          !_isHost &&
-          !_showHostLeftDialog) {
-        _showHostLeftDialog = true;
-        _showHostLeftGameDialog();
+        if (roomData.status == RoomStatus.closed &&
+            !widget.isHost &&
+            !_showHostLeftDialog) {
+          _showHostLeftDialog = true;
+          _showHostLeftGameDialog();
+        }
       }
     });
   }
@@ -162,7 +153,7 @@ class _GamePageState extends State<GamePage> {
   }
 
   void _toggleTimer() async {
-    if (_isHost) {
+    if (widget.isHost) {
       await RoomService.updateTimerState(widget.roomCode, !_isTimerPaused);
     }
   }
@@ -296,7 +287,7 @@ class _GamePageState extends State<GamePage> {
           TextButton(
             onPressed: () async {
               // Update player status based on whether they are host or not
-              if (_isHost) {
+              if (widget.isHost) {
                 // Host keeps their status as ready when leaving game
                 await PlayerService.updatePlayerStatus(
                   widget.playerId,
@@ -333,7 +324,7 @@ class _GamePageState extends State<GamePage> {
                     MaterialPageRoute(
                       builder: (context) => LobbyPage(
                         roomCode: widget.roomCode,
-                        isHost: _isHost, // Keep host status
+                        isHost: widget.isHost, // Keep host status
                         userId: widget.playerId,
                         name: player?.name ?? 'Player',
                       ),
@@ -532,8 +523,8 @@ class _GamePageState extends State<GamePage> {
                         ),
                       ),
                     ),
-                    if (_isHost) SizedBox(width: 8),
-                    if (_isHost)
+                    if (widget.isHost) SizedBox(width: 8),
+                    if (widget.isHost)
                       BigRedButton(
                         onPressed: _toggleTimer,
                         icon: _isTimerPaused

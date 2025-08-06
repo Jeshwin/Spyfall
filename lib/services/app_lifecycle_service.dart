@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
@@ -75,7 +77,19 @@ class AppLifecycleService with WidgetsBindingObserver {
     }
   }
 
-  void _handleAppClosed() async {
+  @override
+  Future<AppExitResponse> didRequestAppExit() async {
+    if (kDebugMode) {
+      print('App exit requested - cleaning up player before exit');
+    }
+    
+    // Clean up player data before allowing app to exit
+    await _handleAppClosed();
+    
+    return AppExitResponse.exit;
+  }
+
+  Future<void> _handleAppClosed() async {
     if (_currentPlayerId != null && _currentRoomCode != null) {
       try {
         if (kDebugMode) {
@@ -83,6 +97,9 @@ class AppLifecycleService with WidgetsBindingObserver {
             'App closed - cleaning up player $_currentPlayerId from room $_currentRoomCode',
           );
         }
+
+        // Remove the player from the game
+        await PlayerService.removePlayer(_currentPlayerId!);
 
         // If the current player is the host, close the room
         if (_isHost) {
@@ -93,9 +110,6 @@ class AppLifecycleService with WidgetsBindingObserver {
             );
           }
         }
-
-        // Remove the player from the game
-        await PlayerService.removePlayer(_currentPlayerId!);
       } catch (e) {
         if (kDebugMode) {
           print('Error during app close cleanup: $e');
